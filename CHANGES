@@ -1,0 +1,80 @@
+1.0 (released May 18, 2015)
+- First major version, based on CLog 0.11b.
+
+0.11b (released Jan 13, 2015)
+- Added a WordPress plugin for CLog. Using this plugin, the contents of the logbook is displayed in this popular website content management system. The installation and configuration is described in the README file.
+
+0.10b (released Jun 06, 2014)
+- Added the export_cab2/export_cab3 feature to generate Cabrillo 2.0/3.0 logfiles, nowadays the common way to submit contest logs to the contest manager.
+
+0.9b (released Jan 21, 2014)
+- Added export_html feature to generate an HTML formatted table. The output can be formatted by using the 'export_html_columns' setting, see the included example.clogrc for more information.
+- Added the OPERATOR field to the ADIF export, it will include the 'mycall' field.
+- Maximum length of callsigns extended from 12 to 32, since some special event stations sometimes like to use remarkable long callsigns (e.g. ON65SUSKEENWISKE).
+- Updated some information in the clog(1) manpage.
+- Small textual fixes in 'clog show' and example.clogrc.
+
+0.8b (released Dec 09, 2012)
+- Introduced QSL administration by implementing the commands 'qsl rx' and 'qsl tx', adding a QSL line to the 'info' command, and adding a qsl column to the 'list' command (see 'list_columns' setting in example.clogrc). Also updated the man page.
+- Bugfix: 'call=' string not stripped when running 'clog update NNN call=...'
+- Statistics output has been improved, it now includes DXCC information for each band. In ~/.clogrc the 'statistics_bands' variable is introduced, this allows you to configure the bands to be reported when using the 'statistics' command.
+
+0.7b (released Feb 05, 2012)
+- You can now use different configuration files by setting the CLOGRC environment variable. If not set, it will still default to ~/.clogrc.
+- A new column 'dxcc' is introduced, showing the DXCC when running 'clog list'.
+- The data_rx and data_tx are now in the ADIF export (except when serial_rx/serial_tx are used).
+- The output is now default 80 columns wide. You can overrule this using the 'columns' setting in your config file.
+- The qso_date field is shorted from 8 to 6 characters, by skipping the first 2 digits of the year.
+- You can now export the complete logbook in CSV format, using 'clog export_csv'. See the clog(1) manpage for details.
+- Fixed a formatting issue for bearing, when no bearing was known, CLog forgot to print a space character, disturbing the column layout.
+- Fixed a typo in the VHF+ contesting example in example.clogrc (serial_tx was listed twice, while there was no serial_rx).
+- Added cty.dat import procedure in the installation section of README.
+- Some callsigns are not recognized, to force the callsign prepend 'call=', e.g. 'clog add 3510 cw call=pa04ab'.
+
+0.6b (released Jan 27, 2011)
+- Added bearing and distance information: added 'clog locator' function, added 'bearing' and 'distance' columns to list_columns setting, added bearing and distance information for 'clog show'. Also added a new setting 'mylocator' in .clogrc.
+- Fixed the upgrade procedure in the README (forgot the -D parameter in the mysql commands).
+- Simplified the database upgrade by putting all SQL and some checks into the clog script.
+- Introduced the 'mycall' variable in ~/.clogrc, this setting is now mandatory, so having a ~/.clogrc file is also mandatory now. CLog is now multi-user! The 'qsos' table now also has a 'mycall' column.
+- Introduced the 'list_columns' variable in ~/.clogrc, this allows the user to configure the output of 'clog list', by providing the preferred columns.
+- Rewritten the installation procedure in the README.
+- Bugfix: Mode was cleared when no RST(rx) and/or RST(rx) was given, resulting in an error "Callsign, mode and frequency are mandatory". This is fixed now.
+- Added DXCC counts to statistics.
+- Filtered newlines in comments field when doing a ADIF export
+- Added fields for contest use: serial_tx, serial_rx, data_tx, data_rx. Added a locator field too for those VHF+ guys. Updated the FIELDS section in the clog(1) man-page.
+- Dropped clog_export_pacc.
+
+0.5b (released Feb 24, 2009)
+- Added the command 'import_cty' to import a cty.dat file into the database. This enables prefix recognition. See http://www.country-files.com/ for more info about cty.dat.
+- DXCC and country are now displayed when doing 'clog show <id>'
+- Added the command 'dxcc <call|prefix>' to search the DXCC information imported from cty.dat. This is just a nice addon to have, at least I found it usefull. It doesn't any data in the database.
+- Added the command 'statistics', which reports the total number of QSO's, and number of QSO's per mode/band. Also added the configuration option 'statistics_modes'.
+- Most commands can now be abbreviated to the first 2 characters, e.g. 'clog st' will do the same as 'clog statistics'.
+- Added the clog(1) man page.
+- Added a check to verify that the database model is compatible with the current CLog version.
+- Updated the help text, removed some parts to fit on a 80x25 screen and added a reference to the man page.
+- Fixed some typo's in example.clogrc and README.
+
+0.4b (released Feb 18, 2009)
+- Configuration files are now supported. Users can put a file named .clogrc in their home directory. The configuration options are documented in example.clogrc, which is included in this distribution.
+- Added an 'update' command. It works like 'add', but you have to include the id of the QSO. See 'clog help' for the correct syntax.
+- Fixed a bug in frequency recognition. Short frequencies (e.g. 14m, meaning 14MHz) were not recognized. This is fixed now.
+- Thanks to the introduction of the configuration file, users can now define some defaults: rst-sent, rst-received, mode and frequency. This is extremely helpfull during contests and pileups.
+- Added a small tool clog_export_pacc, usefull to extract a Cabrillo v2 based logfile for the PACC contest. I don't know what to do with this tool yet. Should I keep it? Or integrate it? Or drop it? Time will tell...
+- Added a TODO file to the distribution to store ideas for future versions.
+
+0.3b
+- The name 'Hamlog' is too confusing, so I renamed the project to 'CLog'. Even the database/table is renamed from hamlog.hamlog to clog.qsos.
+- CLog is now GPL licensed.
+- Added the file clog.spec to create a CLog RPM.
+
+0.2b
+- Modified list header: "Time" is now "UTC", "Freq" is now "Band".
+- Modified list output: band is now shown (instead of frequency), resulting in some more space for the comments field.
+- Modes: removed DSB, added (AM)TOR, PKT, SSTV, ATV, PAC(TOR), CLO(VER)
+- New command: "hamlog export_adif" will dump the complete logbook in ADIF v1 format to STDOUT.
+- Fixed copy&paste error in help text for "hamlog delete".
+- Added some lines to the help text about mandatory fields and automatic date/time.
+
+0.1b
+- Initial version

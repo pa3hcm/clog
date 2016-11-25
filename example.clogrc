@@ -1,0 +1,134 @@
+## This is .clogrc, the configuration file for CLog. Put it in your home
+## directory and update any setting if necessary.
+
+## From version 0.6b users must define their callsign. Each logbook entry
+## will include this call. This will enable multi-user support. Also, future
+## file formats (export) will require this setting.
+
+#mycall = AA0AAA
+
+## You can specify your maidenhead locator here. This will show bearing and
+## distance information on several places, and enables the 'bearing' and
+## 'distance' columns in the 'list_columns' setting.
+
+#mylocator = JO21OX
+
+
+## The following settings are used to connect to the MySQL database server. You
+## can leave them to the defaults. When changing dbname, dbuser or dbpass, you
+## will probably have to change some stuff in the database itself too!
+##
+## dbhost [localhost] - Hostname of the database server
+## dbname [clog]      - Name of the database
+## dbuser [cloguser]  - Name of the user that is allowed to access the given
+##                      database
+## dbpass [clogpass]  - Password of dbuser
+
+dbhost = localhost
+dbname = clog
+dbuser = cloguser
+dbpass = clogpass
+
+
+## These are defaults for adding log entries. This might be helpfull when you
+## are using CLog during a contest, pile-up, etc. You can always overrule these
+## values on the commandline.
+##
+## default_rst_rx [] - RS(T) received, e.g. 599
+## default_rst_tx [] - RS(T) sent
+## default_mode []   - Mode: SSB, LSB, USB, CW, RTTY, (AM)TOR, PKT, AM, FM,
+##                     SSTV, ATV, PAC(TOR), CLO(VER)
+## default_freq []   - Frequency in MHz, e.g. 14.222
+
+#default_rst_rx = 59
+#default_rst_tx = 59
+#default_mode = LSB
+#default_freq = 3.630
+
+
+## The following setting applies to 'clog statistics'.
+##
+## statistics_modes [CW,SSB,FM,ALL]
+##                    - Comma seperated list, allowed modes are:
+##                      LSB, USB, SSB, CW, RTTY, TOR, PKT, AM, FM, SSTV, ATV,
+##                      PAC and CLO. Additionally, the "mode" ALL can be added,
+##                      resulting in band totals regardless of the mode.
+## statistics_bands [160m,80m,40m,20m,15m,10m,2m,70cm]
+##                    - Comma seperated list, allowed bands are: 160m, 80m,
+##                      40m, 30m, 20m, 17m, 15m, 12m, 10m, 6m, 2m, 1.25m,
+##                      70cm, 35cm, 23cm, 13cm, 9cm, 6cm, 3cm, 1.25cm, 6mm,
+##                      4mm, 2.5mm, 2mm and 1mm.
+
+#statistics_modes = CW,SSB,ALL
+#statistics_bands = 160m,80m,40m,30m,20m,17m,15m,12m,10m,6m,2m,70cm
+
+
+## The list_columns setting allows a user to customize the 'clog list' output.
+## The following columns are currently supported:
+##  - mycall
+##  - callsign
+##  - qso_date
+##  - qso_time
+##  - freq
+##  - band
+##  - mode
+##  - rst_tx
+##  - rst_rx
+##  - locator
+##  - serial_tx
+##  - serial_rx
+##  - data_tx
+##  - data_rx
+##  - qsl
+##  - dxcc
+##  - comments
+##
+## Please note that the 'id' column is always displayed (first column) and
+## therefore not configurable.
+##
+## Default:
+## list_columns = callsign qso_date qso_time band mode rst_tx rst_rx comments
+##
+## Example for VHF+ contesting:
+## list_columns = qso_time callsign band mode rst_tx serial_tx rst_rx serial_rx locator bearing distance
+
+#list_columns = callsign qso_date qso_time band mode rst_tx rst_rx comments
+
+## Default the 'clog list' output is truncated at 80 columns. You can overrule
+## this by setting the 'columns' variable.
+
+# columns = 132
+
+
+## The export_html_columns setting allows you to define the columns included
+## in the HTML export ('clog export_html'). The syntax is identical to the
+## 'list_columns' setting.
+##
+## Default:
+## export_html_columns = callsign qso_date qso_time band mode rst_tx rst_rx comments
+
+# export_html_columns = callsign qso_date qso_time band mode rst_tx rst_rx comments
+
+
+## The export_cabrillo_columns setting allows you to define the columns included
+## in the Cabrillo export ('clog export_cabrillo'). The syntax is identical to the
+## 'list_columns' setting. There are 2 extra fields: 'mygrid' and 'grid', these
+## show the shortened QTH-locator, e.g. the locator JO21XX results in grid JO21.
+## Clog doesn't support station numbers yet. To use this in a multi-operator contest,
+## use an unused exchange field (e.g. 'clog txs=1 .....'.
+##
+## Default:
+# export_cabrillo_columns = qso_date qso_time freq mode mycall rst_tx data_tx callsign rst_rx data_rx
+#
+# Some examples:
+#
+# ARRL CQ contests, PACC, RXDC: log exchanges to rxd/txd and station numbers to txs:
+#export_cabrillo_columns = freq mode qso_date qso_time mycall rst_tx data_tx callsign rst_rx data_rx serial_tx
+# 
+# IARU contests: log exchanges to rxd/txd
+#export_cabrillo_columns = freq mode qso_date qso_time mycall rst_tx data_tx callsign rst_rx data_rx
+# 
+# ARRL VHF contests:
+#export_cabrillo_columns = freq mode qso_date qso_time mycall mylocator callsign grid
+#
+

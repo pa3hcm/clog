@@ -1,0 +1,11 @@
+CLOG TODO LIST
+- ADIF import function
+- Hamlib/rigctl integration to automate the input of frequency and mode (and report?)
+- Add support for new bands: 60m, 4m, 137kHz, 500kHz
+- Improve performance, maybe switch to other database?
+- Integration with public callbooks (e.g. qrz.com)?
+- A function to renumber all ID's of logged QSO's to get rid of anomalies in the ID numbering. Some people are interested in the total number of QSO's, the ID field can be used for this, as long as there are no gaps in the numbering. Maybe we should always renumber when a QSO is deleted?
+- Create a Makefile to simplify the installation when not using RPM.
+- Create a package for Debian/Ubuntu.
+- Add a way to define column widths (e.g. in list_columns).
+- Add a 'auto' value for the columns setting, to let CLog determine the screen width.
