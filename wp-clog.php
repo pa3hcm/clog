@@ -1,7 +1,7 @@
 <?php
 /*
 Plugin Name: WP-CLog
-Plugin URI: http://clog-ham.sf.net/
+Plugin URI: http://github.com/pa3hcm/clog
 Description: Simple plugin to publish your CLog (version 0.9b or later) hamradio logbook in WordPress.
 Version: 0.01
 Author: Ernest Neijenhuis PA3HCM

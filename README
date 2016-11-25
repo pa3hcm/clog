@@ -22,24 +22,10 @@ CLog was originally named Hamlog-CLI, but since lots of ham radio logbooks are
 called 'Hamlog' this name would be too confusing. Therefore I renamed it to
 CLog.
 
-CLog can be downloaded from http://clog-ham.sourceforge.net/. There you will
-also find our wiki. There are also two mailinglists available:
+CLog can be downloaded from http://github.com/pa3hcm/clog.
 
-- clog-ham-announce@lists.sourceforge.net
-    announcements for new versions
-    request address: clog-ham-announce-request@lists.sourceforge.net
+To contact the author, send an email to pa3hcm<at>amsat<dot>org.
 
-- clog-ham-users@lists.sourceforge.net
-    for user discussions on CLog
-    request address: clog-ham-users-request@lists.sourceforge.net
-
-To subscribe to one of these mailinglists, please send a message to the
-request address with the subject 'subscribe'. You can leave the lists the same
-way, but then with the subject 'unsubscribe'.
-
-If, for some reason, you don't want to use these lists to communicate with the
-author, you can send an email to pa3hcm<at>amsat<dot>org. However, discussions
-via the lists are preferred.
 
 
 COPYRIGHT
