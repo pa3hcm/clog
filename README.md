@@ -58,13 +58,13 @@ When using the RPM, the installation is quite simple:
 - Be sure your MySQL database server is up and running.
 
 - Install the RPM:
-  # rpm -ivh clog-1.0-1.noarch.rpm
+  > rpm -ivh clog-1.0-1.noarch.rpm
 
 - Run the following command to create the 'clog' database:
-  # mysql -u root -p < /usr/share/doc/clog-1.0/clog.sql
+  > mysql -u root -p < /usr/share/doc/clog-1.0/clog.sql
 
 - Create your configuration file:
-  # cp /usr/share/doc/clog-1.0/example.clogrc ~/.clogrc
+  > cp /usr/share/doc/clog-1.0/example.clogrc ~/.clogrc
 
 - Review the configuration file. You must at least configure the 'mycall'
   variable.
@@ -75,24 +75,24 @@ If your system does not support RPM's, follow this procedure to install CLog:
 - Download the clog-1.0.tar.gz file.
 
 - Unpack the file:
-  # tar xzvf clog-1.0.tar.gz
+  > tar xzvf clog-1.0.tar.gz
 
 - Go into the directory:
-  # cd clog-1.0
+  > cd clog-1.0
 
 - Copy some files:
-  # cp clog /usr/local/bin
-  # cp example.clogrc ~/.clogrc
+  > cp clog /usr/local/bin
+  > cp example.clogrc ~/.clogrc
 
 - Run the following command to create the 'clog' database:
-  # mysql -u root -p < clog.sql
+  > mysql -u root -p < clog.sql
 
 - Review the configuration file. You must at least configure the 'mycall'
   variable.
 
 - Import the latest cty.dat:
-  # wget http://www.country-files.com/cty/old/cty.dat
-  # clog import_cty cty.dat
+  > wget http://www.country-files.com/cty/old/cty.dat
+  > clog import_cty cty.dat
 
 Consider creating a crontab entry for this, e.g.:
   6 6 * * 1 wget http://www.country-files.com/cty/cty.dat ; \
@@ -108,7 +108,7 @@ first, then upgrade to 1.0.
 When using RPM's, the upgrade is very easy:
 
 - First install the new RPM:
-    # rpm -Uvh clog-1.0-1.noarch.rpm
+    > rpm -Uvh clog-1.0-1.noarch.rpm
 
 - Add the following line in your .clogrc file, replace PA3HCM and JO21OX with
 your call and locator:
@@ -117,15 +117,15 @@ your call and locator:
 
 - Upgrade your database (you may have to repeat this step a couple of times
   when you skip multiple versions):
-    # clog dbupgrade
+    > clog dbupgrade
 
 - Test your new version:
-    # clog list
+    > clog list
 
 When NOT using RPM's, you should replace your current clog file with the one
 that comes with this distribution. Also, you have to update your database:
 
-  # clog dbupgrade
+  > clog dbupgrade
 
 Since we changed the way of upgrading the database in version 0.6b, some users
 may see this error when running the 'clog dbupgrade' command:
@@ -137,14 +137,14 @@ The problem is that the given user is not allowed to modify the database
 structure. To solve this, log in to the MySQL client as root, and run the
 following queries:
 
-  # mysql -u root -p
+  > mysql -u root -p
   Enter password: ********
   mysql> REVOKE ALL PRIVILEGES ON clog.* FROM 'cloguser'@'localhost';
   mysql> GRANT ALL PRIVILEGES ON clog.* TO 'cloguser'@'localhost'; 
 
 Now run the upgrade again:
 
-  # clog dbupgrade
+  > clog dbupgrade
 
 
 # Security
@@ -153,7 +153,7 @@ When creating the database, a user 'cloguser' is created with the password
 'clogpass'. Maybe you don't want these default credentials. Therefore you can
 modify the password of this user in the database using the MySQL client:
 
-  # mysql -u root -p
+  > mysql -u root -p
   Password: ******
   mysql> SET PASSWORD FOR 'cloguser'@'localhost' = PASSWORD('new_password');
 
@@ -173,21 +173,21 @@ Follow these steps to install the plugin:
 
 - Go to the document root of your WordPress website, e.g.:
 
-  # cd /var/www/html
+  > cd /var/www/html
 
 - Go to the directory 'wp-content/plugins'.
 
-  # cd wp-content/plugins
+  > cd wp-content/plugins
 
 - Create a directory called 'wp-clog':
 
-  # mkdir wp-clog
+  > mkdir wp-clog
 
 - Put the wp-clog.php file in this directory.
 
 - Verify rights are correctly set, e.g.:
 
-  # chmod 0755 . wp-clog.php
+  > chmod 0755 . wp-clog.php
 
 - Go to your WordPress dashboard using your favourite webbrowser.
 
