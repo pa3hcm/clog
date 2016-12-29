@@ -1,6 +1,6 @@
 Name: clog
 Summary: CLog - Command-line logbook for amateur radio
-Version: 1.0
+Version: 1.1
 Release: 1
 Group: Applications/Applications
 License: GPL
@@ -54,6 +54,9 @@ echo " "
 
 
 %changelog
+* Thu Dec 29 2016 Ernest Neijenhuis PA3HCM <pa3hcm amsat org> 1.1-1
+- Updated to CLog 1.1.
+
 * Mon May 18 2015 Ernest Neijenhuis PA3HCM <pa3hcm amsat org> 1.0-1
 - Updated to CLog 1.0.
 

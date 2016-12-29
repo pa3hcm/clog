@@ -1,4 +1,4 @@
--- SQL-script to create the CLog 1.0 database
+-- SQL-script to create the CLog 1.1 database
 
 CREATE DATABASE clog;
 USE clog;
@@ -7,7 +7,7 @@ CREATE TABLE `settings` (
   `setting_name` varchar(64) NOT NULL,
   `setting_value` varchar(255) NOT NULL
 );
-INSERT INTO `settings` (`setting_name`, `setting_value`) VALUES ('clog_database_version', '1.0');
+INSERT INTO `settings` (`setting_name`, `setting_value`) VALUES ('clog_database_version', '1.1');
 
 CREATE TABLE `qsos` (
   `id` bigint(20) NOT NULL auto_increment,
