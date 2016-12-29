@@ -45,59 +45,44 @@ of ideas on functionality and usability.
 - Perl, including DBI and DBD::MySQL
 - MySQL server (3.23.23 or higher) and client
 
-CLog is developed and tested on CentOS 5 (i686), with the included Perl 5.8.8,
-perl-DBI, perl-DBD-MySQL and MySQL 5.0.27. However, it should run on most
-UNIX/linux platforms. You may have to change the perl path on the first line of
-the 'clog' file.
+CLog is developed and tested on CentOS 5, with the included Perl, perl-DBI,
+perl-DBD-MySQL and MySQL. However, it should run on most UNIX/linux platforms.
+In some occasions you may have to change the perl path on the first line of the
+'clog' file.
 
 
 # Installation
 
-When using the RPM, the installation is quite simple:
+- Use git to download the latest version:
+  > cd ~
+  > git clone https://github.com/pa3hcm/clog.git
 
-- Be sure your MySQL database server is up and running.
+- Go into the clog directory:
+  > cd clog
 
-- Install the RPM:
-  > rpm -ivh clog-1.0-1.noarch.rpm
-
-- Run the following command to create the 'clog' database:
-  > mysql -u root -p < /usr/share/doc/clog-1.0/clog.sql
-
-- Create your configuration file:
-  > cp /usr/share/doc/clog-1.0/example.clogrc ~/.clogrc
-
-- Review the configuration file. You must at least configure the 'mycall'
-  variable.
-
-
-If your system does not support RPM's, follow this procedure to install CLog:
-
-- Download the clog-1.0.tar.gz file.
-
-- Unpack the file:
-  > tar xzvf clog-1.0.tar.gz
-
-- Go into the directory:
-  > cd clog-1.0
-
-- Copy some files:
+- Copy files to the desired directories:
   > cp clog /usr/local/bin
+  > chmod 755 /usr/local/bin/clog
+  >
+  > cp clog.1.gz /usr/local/share/man/man1
+  >
   > cp example.clogrc ~/.clogrc
 
 - Run the following command to create the 'clog' database:
   > mysql -u root -p < clog.sql
 
-- Review the configuration file. You must at least configure the 'mycall'
-  variable.
+- Review the configuration file ~/.clogrc. At least set the 'mycall' and
+  'mylocator' variables.
+  > vi ~/.clogrc
 
 - Import the latest cty.dat:
   > wget http://www.country-files.com/cty/old/cty.dat
   > clog import_cty cty.dat
 
 Consider creating a crontab entry for this, e.g.:
-  6 6 * * 1 wget http://www.country-files.com/cty/cty.dat ; \
-            clog import_cty cty.dat ; \
-            rm cty.dat
+  > 6 6 * * 1 wget http://www.country-files.com/cty/cty.dat ; \
+  >         clog import_cty cty.dat ; \
+  >         rm cty.dat
 
 
 # Upgrading
@@ -105,25 +90,8 @@ Consider creating a crontab entry for this, e.g.:
 A direct upgrade from CLog 0.4b or older is not possible. Upgrade to CLog 0.5b
 first, then upgrade to 1.0.
 
-When using RPM's, the upgrade is very easy:
-
-- First install the new RPM:
-    > rpm -Uvh clog-1.0-1.noarch.rpm
-
-- Add the following line in your .clogrc file, replace PA3HCM and JO21OX with
-your call and locator:
-    mycall = PA3HCM
-    mylocator = JO21OX
-
-- Upgrade your database (you may have to repeat this step a couple of times
-  when you skip multiple versions):
-    > clog dbupgrade
-
-- Test your new version:
-    > clog list
-
-When NOT using RPM's, you should replace your current clog file with the one
-that comes with this distribution. Also, you have to update your database:
+Upgrading is like installing, except that you mustn't create the 'clog'
+database. Instead, run the database upgrade:
 
   > clog dbupgrade
 
@@ -154,13 +122,13 @@ When creating the database, a user 'cloguser' is created with the password
 modify the password of this user in the database using the MySQL client:
 
   > mysql -u root -p
-  Password: ******
-  mysql> SET PASSWORD FOR 'cloguser'@'localhost' = PASSWORD('new_password');
+  > Password: ******
+  > mysql> SET PASSWORD FOR 'cloguser'@'localhost' = PASSWORD('new_password');
 
 Now edit/create the .clogrc file in your home directory (see example.clogrc)
 and modify the value for dbpass:
 
-  dbpass = new_password
+  > dbpass = new_password
 
 
 # WordPress plugin
@@ -172,21 +140,17 @@ The plugin is a single PHP-script and is named wp-clog.php.
 Follow these steps to install the plugin:
 
 - Go to the document root of your WordPress website, e.g.:
-
   > cd /var/www/html
 
 - Go to the directory 'wp-content/plugins'.
-
   > cd wp-content/plugins
 
 - Create a directory called 'wp-clog':
-
   > mkdir wp-clog
 
 - Put the wp-clog.php file in this directory.
 
 - Verify rights are correctly set, e.g.:
-
   > chmod 0755 . wp-clog.php
 
 - Go to your WordPress dashboard using your favourite webbrowser.
@@ -198,11 +162,9 @@ Follow these steps to install the plugin:
 - Click 'Settings', customize the given options and click 'Save Changes'.
 
 To list your QSO's on a page or blog post, include this in your content:
-
-  [wpclog-list]
+  > [wpclog-list]
 
 This will include a table with the 25 latest QSO's. If you want to change
-this number, use the 'limit' paramter, e.g.:
-
-  [wpclog-list limit=100]
+this number, use the 'limit' parameter, e.g.:
+  > [wpclog-list limit=100]
 
