@@ -11,7 +11,7 @@ CLog.
 
 CLog can be downloaded from http://github.com/pa3hcm/clog.
 
-To contact the author, send an email to pa3hcm<at>amsat<dot>org.
+To contact the author, send an email to pa3hcm at amsat dot org.
 
 
 # Copyright
