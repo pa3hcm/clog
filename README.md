@@ -43,13 +43,13 @@ of ideas on functionality and usability.
 
 # Requirements
 
-* Perl, including DBI and DBD::MySQL
+* Perl, including Switch, DBI and DBD::MySQL
 * MySQL server (3.23.23 or higher) and client
 
-CLog is developed and tested on CentOS 5, with the included Perl, perl-DBI,
-perl-DBD-MySQL and MySQL. However, it should run on most UNIX/linux platforms.
-In some occasions you may have to change the perl path on the first line of the
-'clog' file.
+CLog is developed and tested on CentOS 7, with the included Switch, Perl,
+perl-DBI, perl-DBD-MySQL and MySQL. However, it should run on most UNIX/linux
+platforms. In some occasions you may have to change the perl path on the first
+line of the 'clog' file.
 
 
 # Installation
