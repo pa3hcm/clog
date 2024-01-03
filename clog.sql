@@ -1,4 +1,4 @@
--- SQL-script to create the CLog 1.1 database
+-- SQL-script to create the CLog 1.2 database
 
 CREATE DATABASE clog;
 USE clog;
@@ -7,14 +7,14 @@ CREATE TABLE `settings` (
   `setting_name` varchar(64) NOT NULL,
   `setting_value` varchar(255) NOT NULL
 );
-INSERT INTO `settings` (`setting_name`, `setting_value`) VALUES ('clog_database_version', '1.1');
+INSERT INTO `settings` (`setting_name`, `setting_value`) VALUES ('clog_database_version', '1.2');
 
 CREATE TABLE `qsos` (
   `id` bigint(20) NOT NULL auto_increment,
   `mycall` varchar(32) NOT NULL,
   `callsign` varchar(32) NOT NULL,
-  `qso_date` date NOT NULL default '0000-00-00',
-  `qso_time` time NOT NULL default '00:00:00',
+  `qso_date` date NOT NULL,
+  `qso_time` time NOT NULL,
   `freq` varchar(10) NOT NULL default '',
   `mode` varchar(10) NOT NULL default '',
   `rst_tx` varchar(5) NOT NULL default '',
@@ -38,7 +38,7 @@ CREATE TABLE `dxccs` (
   `continent` varchar(2) NOT NULL,
   `latitude` varchar(10) NOT NULL,
   `longitude` varchar(10) NOT NULL,
-  `gmt_offset` varchar(5) NOT NULL,
+  `gmt_offset` varchar(6) NOT NULL,
   `german_dxcc` enum('Y','N') NOT NULL default 'N',
   PRIMARY KEY (`dxcc`)
 );
@@ -49,7 +49,6 @@ CREATE TABLE `prefixes` (
   PRIMARY KEY (`prefix`)
 );
 
-GRANT ALL PRIVILEGES ON `clog`.* TO 'cloguser'@'localhost' IDENTIFIED BY 'clogpass';
-
+CREATE USER 'cloguser'@'localhost' IDENTIFIED BY 'clogpass';
+GRANT ALL PRIVILEGES ON `clog`.* TO 'cloguser'@'localhost';
 FLUSH PRIVILEGES;
-

@@ -2,7 +2,8 @@
 
 # CLog - Commandline logbook for amateur radio
 #
-# Copyright (C) 2008-2015 Ernest Neijenhuis PA3HCM
+# https://github.com/pa3hcm/clog
+#
 #
 # This file is part of CLog.
 #
@@ -25,8 +26,8 @@ use DBI;
 use POSIX qw(:math_h);
 
 # Constants
-use constant VERSION => '1.1';
-use constant DBVERSION => '1.1';
+use constant VERSION => '1.2';
+use constant DBVERSION => '1.2';
 use constant PI => 3.14159265358979;
 
 
@@ -111,7 +112,7 @@ sub read_configfile {
 
 # This function prints the standard help text.
 sub syntax {
-	print "CLog " . VERSION . " - Copyright (c) 2008-2015, Ernest Neijenhuis PA3HCM\n";
+	print "CLog " . VERSION . " by Ernest Neijenhuis PA3HCM\n";
 	print "\n";
 	print "Syntax:\n";
 	print "  clog                             Display this help text\n";
@@ -506,8 +507,8 @@ sub show_entry {
 		} else {
 			print "Locator  : -\n";
 		}
-		if ($serial_tx == 0) { $serial_tx = "-"; }
-		if ($serial_rx == 0) { $serial_rx = "-"; }
+		if ($serial_tx == 0) { $serial_tx = 0; }
+		if ($serial_rx == 0) { $serial_rx = 0; }
 		if ($data_tx eq '') { $data_tx = "-"; }
 		if ($data_rx eq '') { $data_rx = "-"; }
 		print "Sent     : $serial_tx / $data_tx\n";
@@ -533,8 +534,8 @@ sub add_entry {
 	my $rst_rx = '';
 	my $rst_tx = '';
 	my $locator = '';
-	my $serial_tx = '';
-	my $serial_rx = '';
+	my $serial_tx = 0;
+	my $serial_rx = 0;
 	my $data_tx = '';
 	my $data_rx = '';
 	my $freq = '';
@@ -590,13 +591,13 @@ sub add_entry {
 					}
 				}
 				case 'is_serial_tx' {
-					if ($serial_tx eq '') {
+					if ($serial_tx == 0) {
 						$serial_tx = uc($arg);
 						$serial_tx =~ s/^[Tt][Xx][Ss]=//;
 					}
 				}
 				case 'is_serial_rx' {
-					if ($serial_rx eq '') {
+					if ($serial_rx == 0) {
 						$serial_rx = uc($arg);
 						$serial_rx =~ s/^[Rr][Xx][Ss]=//;
 					}
@@ -670,8 +671,8 @@ sub update_entry {
 	my $rst_rx = '';
 	my $rst_tx = '';
 	my $locator = '';
-	my $serial_tx = '';
-	my $serial_rx = '';
+	my $serial_tx = 0;
+	my $serial_rx = 0;
 	my $data_tx = '';
 	my $data_rx = '';
 	my $freq = '';
@@ -978,7 +979,7 @@ sub export_cabrillo {
 		print "CLAIMED-SCORE: \n";
 		print "CLUB: \n";
 		print "CONTEST: \n";
-		print "CREATED-BY: CLog " . VERSION . " - Copyright (c) 2008-2015, Ernest Neijenhuis PA3HCM\n";
+		print "CREATED-BY: CLog " . VERSION . " - by Ernest Neijenhuis PA3HCM\n";
 		print "LOCATION: \n";
 		print "NAME: \n";
 		print "ADDRESS: \n";
@@ -1002,7 +1003,7 @@ sub export_cabrillo {
 		print "CLAIMED-SCORE: \n";
 		print "CLUB: \n";
 		print "CONTEST: \n";
-		print "CREATED-BY: CLog " . VERSION . " - Copyright (c) 2008-2015, Ernest Neijenhuis PA3HCM\n";
+		print "CREATED-BY: CLog " . VERSION . " by Ernest Neijenhuis PA3HCM\n";
 		print "IOTA-ISLAND-NAME: \n";
 		print "NAME: \n";
 		print "ADDRESS: \n";
@@ -1617,6 +1618,12 @@ sub dbupgrade {
 			print "Upgrade was successfull.\n";
 		}
 		case '1.1' {
+			print "Upgrading from $clog_database_version to 1.2...\n";
+			$dbh->do("ALTER TABLE dxccs MODIFY gmt_offset VARCHAR(6);") || die "ERROR: upgrade failed!\n";
+			$dbh->do("UPDATE settings SET setting_value='1.2' WHERE setting_name='clog_database_version';") || die "ERROR: upgrade failed!\n";
+			print "Upgrade was successfull.\n";
+		}
+		case '1.2' {
 			print "Nothing to do...\n";
 		}
 		default {
