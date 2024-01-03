@@ -1,6 +1,6 @@
 # CLog - Command Line Ham Radio Logbook
 
-CLog is a command-line logbook for amateur radio. There is no other
+**CLog** is a command-line logbook for amateur radio. There is no other
 interface available. If you don't like working on a command-line, forget this
 software. There's no GUI, TUI or whatever. However, if you can't live without
 your command-line, you might love it. At least I do :-)
@@ -18,20 +18,22 @@ the website https://pa3hcm.nl/.
 
 ## Requirements
 
+Recent versions of these packages are required:
+
 * Perl, including Switch, DBI and DBD::MySQL
 * MySQL server and client
 
 CLog is developed and tested on Ubuntu 22.04, with the included `perl`,
-`libswitch-perl`, `libdbi-perl`, `libdbd-mysql-perl` and `mysql-server`
-packages. However, it should run on most UNIX/linux platforms. In some
-occasions you may have to change the perl path on the first line of the
-`clog` file.
+`libswitch-perl`, `libdbi-perl`, `libdbd-mysql-perl`, `mysql-server` and
+`mysql-client` packages installed. However, it should run on most UNIX/linux
+platforms. In some occasions you may have to change the perl path on the first
+line of the `clog` file.
 
 
 ## Installation
 
-Download CLog from https://github.com/pa3hcm/clog, or use git to download
-the latest version:
+Download CLog from https://github.com/pa3hcm/clog and extract the file, or use
+git to download the latest development version:
 
 ``` sh
 cd ~
@@ -205,13 +207,14 @@ of ideas on functionality and usability.
 
 ## License
 
-CLog is free software: you can redistribute it and/or modify it under the terms
-of the GNU General Public License as published by the Free Software Foundation,
-either version 3 of the License, or (at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation, either version 3 of the License, or (at your option) any later
+version.
 
-CLog is distributed in the hope that it will be useful, but WITHOUT ANY
+This program is distributed in the hope that it will be useful, but WITHOUT ANY
 WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
 PARTICULAR PURPOSE. See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License along with
-CLog. If not, see <http://www.gnu.org/licenses/>.
+this program. If not, see <http://www.gnu.org/licenses/>.
