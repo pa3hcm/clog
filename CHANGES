@@ -1,3 +1,12 @@
+1.2.1 (release January 9, 2024)
+- Dropped RPM support, since  there is no reason to support RPM while not supporting other package types.
+
+1.2 (released Januari3, 2024)
+- Fixed issue #2 complaining about gmt_offset while initializing the clog database.
+- Fixed 'invalid values' error for serial_tx
+- Updated database schema, compatible with newer versions of MySQL.
+- Updated the documentation to reflect the new changes and show better markdown formatting.
+
 1.1 (released December 29, 2016)
 - Moved clog to GitHub and therefore had to update documentation and references. No code changes.
 
