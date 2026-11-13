@@ -88,37 +88,37 @@ function wpclog_render_form() {
 				<tr>
 					<th scope="row">My callsign</th>
 					<td>
-						<input type="text" size="30" name="wpclog_options[mycall]" value="<?php echo $options['mycall']; ?>" /><p class="description">Enter your callsign, must be the same as the <i>mycall</i> setting in your <i>.clogrc</i> file.</p>
+						<input type="text" size="30" name="wpclog_options[mycall]" value="<?php echo esc_attr($options['mycall']); ?>" /><p class="description">Enter your callsign, must be the same as the <i>mycall</i> setting in your <i>.clogrc</i> file.</p>
 					</td>
 				</tr>
 				<tr>
 					<th scope="row">Database host</th>
 					<td>
-						<input type="text" size="30" name="wpclog_options[db_host]" value="<?php echo $options['db_host']; ?>" /><p class="description">Enter the hostname or IP-address of the MySQL server that hosts the CLog database.</p>
+						<input type="text" size="30" name="wpclog_options[db_host]" value="<?php echo esc_attr($options['db_host']); ?>" /><p class="description">Enter the hostname or IP-address of the MySQL server that hosts the CLog database.</p>
 					</td>
 				</tr>
 				<tr>
 					<th scope="row">Database port</th>
 					<td>
-						<input type="text" size="30" name="wpclog_options[db_port]" value="<?php echo $options['db_port']; ?>" /><p class="description">Enter the MySQL TCP port number (normally 3306 unless you changed it).</p>
+						<input type="text" size="30" name="wpclog_options[db_port]" value="<?php echo esc_attr($options['db_port']); ?>" /><p class="description">Enter the MySQL TCP port number (normally 3306 unless you changed it).</p>
 					</td>
 				</tr>
 				<tr>
 					<th scope="row">Database name</th>
 					<td>
-						<input type="text" size="30" name="wpclog_options[db_name]" value="<?php echo $options['db_name']; ?>" /><p class="description">Enter the name of the CLog database.</p>
+						<input type="text" size="30" name="wpclog_options[db_name]" value="<?php echo esc_attr($options['db_name']); ?>" /><p class="description">Enter the name of the CLog database.</p>
 					</td>
 				</tr>
 				<tr>
 					<th scope="row">Database username</th>
 					<td>
-						<input type="text" size="30" name="wpclog_options[db_user]" value="<?php echo $options['db_user']; ?>" /><p class="description">Enter the username to login to the CLog database.</p>
+						<input type="text" size="30" name="wpclog_options[db_user]" value="<?php echo esc_attr($options['db_user']); ?>" /><p class="description">Enter the username to login to the CLog database.</p>
 					</td>
 				</tr>
 				<tr>
 					<th scope="row">Database password</th>
 					<td>
-						<input type="text" size="30" name="wpclog_options[db_pass]" value="<?php echo $options['db_pass']; ?>" /><p class="description">Enter the username's password.</p>
+						<input type="password" size="30" name="wpclog_options[db_pass]" value="<?php echo esc_attr($options['db_pass']); ?>" /><p class="description">Enter the username's password.</p>
 					</td>
 				</tr>
 			</table> 
@@ -140,13 +140,25 @@ function wpclog_gen($atts) {
 	ob_start(); // start output caching (so that existing content in the [wpclog-list] post doesn't get shoved to the bottom of the post
 	$opt = get_option('wpclog_options');
 
-	$wpclog_db = new mysqli($opt['db_host'], $opt['db_user'], $opt['db_pass'], $opt['db_name'], $opt['db_port']);
-	if ($wpclog_db->connect_errno) {
-		echo "<p><b>Sorry</b>, the live logbook is not available at this moment...</p>";
+	// PHP 8.1+ throws an exception on connection errors instead of setting connect_errno
+	try {
+		$wpclog_db = new mysqli($opt['db_host'], $opt['db_user'], $opt['db_pass'], $opt['db_name'], intval($opt['db_port']));
+	} catch (mysqli_sql_exception $e) {
+		$wpclog_db = null;
 	}
+	if (!$wpclog_db || $wpclog_db->connect_errno) {
+		echo "<p><b>Sorry</b>, the live logbook is not available at this moment...</p>";
+		return ob_get_clean();
+	}
+	$limit = max(1, min(1000, intval($limit)));
 
 	$wpclog_db_stmt = $wpclog_db->prepare("SELECT id, mycall, callsign, qso_date, TIME_FORMAT(qso_time, '%H:%i') AS qso_time, FORMAT(freq, 3) AS freq, mode, qsl_tx, qsl_rx FROM qsos WHERE mycall=? ORDER BY qso_date DESC, qso_time DESC, id LIMIT ? ;");
 
+	if (!$wpclog_db_stmt) {
+		echo "<p><b>Sorry</b>, the live logbook is not available at this moment...</p>";
+		$wpclog_db->close();
+		return ob_get_clean();
+	}
 	$wpclog_db_stmt->bind_param('si', $opt['mycall'], $limit);
 	$wpclog_db_stmt->execute();
 	$wpclog_db_stmt->bind_result($wpclog_res_id, $wpclog_res_mycall, $wpclog_res_callsign, $wpclog_res_qso_date, $wpclog_res_qso_time, $wpclog_res_freq, $wpclog_res_mode, $wpclog_res_qsl_tx, $wpclog_res_qsl_rx);
@@ -178,11 +190,11 @@ function wpclog_gen($atts) {
 			$wpclog_res_qsl_rx = '-';
 		}
 		echo "	<tr>
-				<td>" . $wpclog_res_callsign . "</td>
-				<td>" . $wpclog_res_qso_date . "</td>
-				<td>" . $wpclog_res_qso_time . "</td>
-				<td>" . $wpclog_res_freq . "</td>
-				<td>" . $wpclog_res_mode . "</td>
+				<td>" . esc_html($wpclog_res_callsign) . "</td>
+				<td>" . esc_html($wpclog_res_qso_date) . "</td>
+				<td>" . esc_html($wpclog_res_qso_time) . "</td>
+				<td>" . esc_html($wpclog_res_freq) . "</td>
+				<td>" . esc_html($wpclog_res_mode) . "</td>
 				<td>" . $wpclog_res_qsl_tx . "</td>
 				<td>" . $wpclog_res_qsl_rx . "</td>
 			</tr>\n";
@@ -221,7 +233,14 @@ function wpclog_validate_options($input) {
 	// Strip html from textboxes
 	// e.g. $input['textbox'] =  wp_filter_nohtml_kses($input['textbox']);
 
-	$input['txt_page_ids'] = sanitize_text_field( $input['txt_page_ids'] );
+	$output = array();
+	foreach (array('mycall', 'db_host', 'db_name', 'db_user') as $key) {
+		$output[$key] = isset($input[$key]) ? sanitize_text_field($input[$key]) : '';
+	}
+	$output['mycall'] = strtoupper($output['mycall']);
+	$output['db_port'] = isset($input['db_port']) ? strval(intval($input['db_port'])) : '3306';
+	// Don't mangle passwords, they may contain special characters
+	$output['db_pass'] = isset($input['db_pass']) ? $input['db_pass'] : '';
 
-	return $input;
+	return $output;
 }

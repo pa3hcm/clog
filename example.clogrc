@@ -36,8 +36,10 @@ dbpass = clogpass
 ##
 ## default_rst_rx [] - RS(T) received, e.g. 599
 ## default_rst_tx [] - RS(T) sent
-## default_mode []   - Mode: SSB, LSB, USB, CW, RTTY, (AM)TOR, PKT, AM, FM,
-##                     SSTV, ATV, PAC(TOR), CLO(VER)
+## default_mode []   - Mode: SSB, LSB, USB, AM, FM, CW, RTTY, (AM)TOR, PKT,
+##                     PAC(TOR), CLO(VER), SSTV, ATV, FT8, FT4, JS8, FST4,
+##                     Q65, JT65, JT9, MSK144, WSPR, MFSK, PSK31, PSK63,
+##                     PSK125, OLIVIA, D(-)STAR, C4FM, DMR, FREEDV
 ## default_freq []   - Frequency in MHz, e.g. 14.222
 
 #default_rst_rx = 59
@@ -51,7 +53,9 @@ dbpass = clogpass
 ## statistics_modes [CW,SSB,FM,ALL]
 ##                    - Comma seperated list, allowed modes are:
 ##                      LSB, USB, SSB, CW, RTTY, TOR, PKT, AM, FM, SSTV, ATV,
-##                      PAC and CLO. Additionally, the "mode" ALL can be added,
+##                      PAC, CLO, FT8, FT4, JS8, FST4, Q65, JT65, JT9, MSK144,
+##                      WSPR, MFSK, PSK31, PSK63, PSK125, OLIVIA, DSTAR, C4FM,
+##                      DMR and FREEDV. Additionally, the "mode" ALL can be added,
 ##                      resulting in band totals regardless of the mode.
 ## statistics_bands [160m,80m,40m,20m,15m,10m,2m,70cm]
 ##                    - Comma seperated list, allowed bands are: 160m, 80m,
