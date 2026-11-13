@@ -16,7 +16,7 @@
 - Fixed default_freq: it was assigned to the mode field, so the default frequency never worked.
 - Database errors are now reported (DBI RaiseError) instead of silently ignored, and a failing connection gives a clear error.
 - import_cty: fixed german_dxcc values ('Y'/'N' instead of 1/0, rejected by MySQL strict mode), strip <lat/long>, {continent} and ~UTC offset~ overrides from newer cty.dat files, run the import in one transaction.
-- dbupgrade: runs all steps at once, fixed a leading space added to 'mycall' when upgrading from 0.5b, adds the missing qsl_tx/qsl_rx columns when upgrading from 0.6b.
+- dbupgrade: runs all steps at once. Upgrades from versions older than 1.0 are no longer supported: first upgrade to CLog 1.2, then to this version (see README).
 - Fixed bearing/distance for 4-character locators; 8-character locators are truncated to 6 (the size of the database column); 'clog locator' validates its input.
 - Mode aliases (AMTOR, PACTOR, CLOVER) are now also applied by 'clog update'.
 - export_csv escapes double quotes, export_html escapes HTML special characters and rounds bearing/distance.

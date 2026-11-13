@@ -1715,31 +1715,9 @@ sub dbupgrade {
 
 	# Each step upgrades the database from one version to the next. All
 	# steps are run in a row until the current DBVERSION is reached.
+	# Upgrades from versions older than 1.0 are not supported anymore,
+	# upgrade those with CLog 1.2 first (see the README file).
 	my %steps = (
-		'0.5b' => [ '0.6b', sub {
-			$dbh->do("ALTER TABLE qsos ADD mycall    VARCHAR(12) NOT NULL AFTER id;");
-			$dbh->do("ALTER TABLE qsos ADD locator   VARCHAR(12) NOT NULL AFTER rst_rx;");
-			$dbh->do("ALTER TABLE qsos ADD serial_tx INT NOT NULL DEFAULT '0' AFTER locator;");
-			$dbh->do("ALTER TABLE qsos ADD serial_rx INT NOT NULL DEFAULT '0' AFTER serial_tx;");
-			$dbh->do("ALTER TABLE qsos ADD data_tx   VARCHAR(12) NOT NULL AFTER serial_rx;");
-			$dbh->do("ALTER TABLE qsos ADD data_rx   VARCHAR(12) NOT NULL AFTER data_tx;");
-			$dbh->do("UPDATE qsos SET mycall=? WHERE mycall='';", undef, $config{'mycall'});
-		} ],
-		'0.6b' => [ '0.8b', sub {
-			# QSL administration was introduced in 0.8b
-			foreach my $column ('qsl_tx', 'qsl_rx') {
-				my $sth = $dbh->prepare("SHOW COLUMNS FROM qsos LIKE ?;");
-				$sth->execute($column);
-				if ($sth->rows == 0) {
-					$dbh->do("ALTER TABLE qsos ADD $column ENUM('Y','N') NOT NULL DEFAULT 'N';");
-				}
-			}
-		} ],
-		'0.8b' => [ '0.9b', sub {
-			$dbh->do("ALTER TABLE qsos MODIFY mycall VARCHAR(32) NOT NULL;");
-			$dbh->do("ALTER TABLE qsos MODIFY callsign VARCHAR(32) NOT NULL;");
-		} ],
-		'0.9b' => [ '1.0', sub { } ],
 		'1.0'  => [ '1.1', sub { } ],
 		'1.1'  => [ '1.2', sub {
 			$dbh->do("ALTER TABLE dxccs MODIFY gmt_offset VARCHAR(6) NOT NULL;");
@@ -1755,6 +1733,9 @@ sub dbupgrade {
 	}
 	while ($clog_database_version ne DBVERSION) {
 		unless (exists($steps{$clog_database_version})) {
+			if ($clog_database_version =~ /^0\./) {
+				die "ERROR: Upgrading from database version $clog_database_version is not supported by this version of CLog.\nFirst upgrade to CLog 1.2, then upgrade to this version. See the README file.\n";
+			}
 			die "ERROR: Unable to upgrade from database version $clog_database_version.\n";
 		}
 		my ($next_version, $step) = @{ $steps{$clog_database_version} };

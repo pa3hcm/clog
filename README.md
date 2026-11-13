@@ -86,9 +86,6 @@ Consider creating a crontab entry for this, e.g.:
 
 ## Upgrading
 
-A direct upgrade from CLog 0.4b or older is not possible. Upgrade to CLog 0.5b
-first, then upgrade to 1.0.
-
 Upgrading is like installing, except that you mustn't create the 'clog'
 database. Instead, run the database upgrade:
 
@@ -96,12 +93,18 @@ database. Instead, run the database upgrade:
 clog dbupgrade
 ```
 
-Since we changed the way of upgrading the database in version 0.6b, some users
-may see this error when running the 'clog dbupgrade' command:
+This upgrades databases created by CLog 1.0 or newer in one go.
+
+**Upgrading from a version older than 1.0:** the current version of CLog can
+not upgrade these databases. First upgrade to CLog 1.2 (git tag `1.2.1`), and
+run `clog dbupgrade` with that version until it reports that there is nothing
+to do. Then upgrade to the current version as described above.
+
+When running 'clog dbupgrade', you may see an error like this:
 
 ```
-DBD::mysql::db do failed: ALTER command denied to user 'apache'@'localhost'
-for table 'qsos' at ./clog line 822, <CONFIG> line 13.
+DBD::mysql::db do failed: ALTER command denied to user 'cloguser'@'localhost'
+for table 'dxccs'
 ```
 
 The problem is that the given user is not allowed to modify the database
