@@ -79,6 +79,8 @@ dbpass = clogpass
 ##  - rst_tx
 ##  - rst_rx
 ##  - locator
+##  - bearing (requires mylocator)
+##  - distance (requires mylocator)
 ##  - serial_tx
 ##  - serial_rx
 ##  - data_tx
@@ -89,6 +91,8 @@ dbpass = clogpass
 ##
 ## Please note that the 'id' column is always displayed (first column) and
 ## therefore not configurable.
+## Unknown column names are reported with a warning. Callsigns longer than
+## 12 characters are shortened (e.g. ON65SUSKEEN>) in this list only.
 ##
 ## Default:
 ## list_columns = callsign qso_date qso_time band mode rst_tx rst_rx comments
@@ -119,7 +123,7 @@ dbpass = clogpass
 ## 'list_columns' setting. There are 2 extra fields: 'mygrid' and 'grid', these
 ## show the shortened QTH-locator, e.g. the locator JO21XX results in grid JO21.
 ## Clog doesn't support station numbers yet. To use this in a multi-operator contest,
-## use an unused exchange field (e.g. 'clog txs=1 .....'.
+## use an unused exchange field (e.g. 'clog txs=1 .....').
 ##
 ## Default:
 # export_cabrillo_columns = qso_date qso_time freq mode mycall rst_tx data_tx callsign rst_rx data_rx

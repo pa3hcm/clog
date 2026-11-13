@@ -3,8 +3,10 @@
 - ADIF export is now ADIF 3.1.4: modes like FT4/JS8/PSK31 and LSB/USB are exported as MODE + SUBMODE, contest exchanges go to STX_STRING/SRX_STRING, empty fields are left out.
 - Cabrillo export: modes are taken from the mode table (digital modes as DG, digital voice as PH), added 30m, 17m, 12m and 1.25m, 2.5mm/2mm are now 122G/134G (Cabrillo 3).
 - The mode column in 'list' and 'statistics' is now 6 characters wide.
-- 'list': the callsign column is now 10 characters wide (was 12), the comments column gained the 2 characters. Callsigns longer than 10 characters are shortened to 9 characters plus '>' (e.g. ON65SUSKE>), so the columns stay aligned. The full callsign is still stored and shown everywhere else.
-- 'list' output now really fits in 'columns' (default 80) terminal columns: lines are cut by display width instead of bytes, so UTF-8 characters are never split and wide (e.g. CJK) characters count as 2 columns; tabs and other control characters in comments are replaced by a space; trailing spaces are removed.
+- Updated the clog(1) man page: list_columns/columns and truncation in 'list', the dbupgrade command, dB reports, special event callsigns, new examples, fixed typos and outdated links.
+- 'list': callsigns longer than the 12 character callsign column are shortened to 11 characters plus '>' (e.g. ON65SUSKEEN>), so the columns stay aligned. The full callsign is still stored and shown everywhere else.
+- 'list': the 'mycall' column (documented in example.clogrc) was missing and is now supported, the DXCC column is 5 characters wide so codes like 4U1I and HK0/a no longer shift the following columns, unknown names in list_columns are reported with a warning, and column names may be separated by any whitespace.
+- 'list' output now really fits in 'columns' (default 80) terminal columns: lines are cut by display width instead of bytes, so UTF-8 characters are never split and wide (e.g. CJK) characters count as 2 columns; tabs and other control characters in comments are replaced by a space; trailing spaces are removed. When text is cut off, the last displayed character is replaced by '>'.
 - Single-digit frequencies (e.g. 1m, 3m, 7m) are now recognized.
 - Special event callsigns with 3 or 4 digits (e.g. PA100MGY, DQ2006X, 9A287R) are now recognized without call=.
 - 'add': an argument for a field that is already set (e.g. a locator like JN62PI in the comments, which looks like a callsign) now starts the comments instead of being silently dropped.

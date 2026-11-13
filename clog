@@ -354,9 +354,11 @@ sub valid_locator {
 # counts wide characters (e.g. CJK) as 2 columns, and replaces control
 # characters such as tabs (which expand to up to 8 columns) by a space.
 # With $pad the result is padded with spaces to exactly $width columns,
-# otherwise trailing spaces are removed.
+# otherwise trailing spaces are removed. With $mark, the last displayed
+# character is replaced by '>' when text was cut off (like callsigns in
+# 'clog list'); only cutting off spaces does not count.
 sub fit_width {
-	my ($string, $width, $pad) = @_;
+	my ($string, $width, $pad, $mark) = @_;
 	$string = '' unless defined($string);
 	$width = 80 unless (defined($width) && $width =~ /^\d+$/);
 	my $copy = $string;
@@ -366,16 +368,27 @@ sub fit_width {
 	$text =~ s/[\x00-\x1f\x7f]/ /g;
 	my $out = '';
 	my $columns = 0;
-	foreach my $char (split(//, $text)) {
+	my $rest = '';
+	my @chars = split(//, $text);
+	for (my $i = 0; $i < @chars; $i++) {
+		my $char = $chars[$i];
 		my $char_width = 1;
 		if ($char =~ /\p{Mn}|\p{Me}/) {
 			$char_width = 0;    # combining characters
 		} elsif ($char =~ /\p{East_Asian_Width=Wide}|\p{East_Asian_Width=Fullwidth}/) {
 			$char_width = 2;
 		}
-		last if ($columns + $char_width > $width);
+		if ($columns + $char_width > $width) {
+			$rest = join('', @chars[$i .. $#chars]);
+			last;
+		}
 		$out .= $char;
 		$columns += $char_width;
+	}
+	if ($mark && ($rest =~ /\S/) && ($out ne '')) {
+		# Replace the last character (and its combining marks) by '>'
+		$out =~ s/\X$/>/;
+		return $is_utf8 ? encode('UTF-8', $out) : $out;
 	}
 	if ($pad) {
 		$out .= ' ' x ($width - $columns);
@@ -385,12 +398,28 @@ sub fit_width {
 	return $is_utf8 ? encode('UTF-8', $out) : $out;
 }
 
-# Shortens callsigns longer than 10 characters to 9 characters plus '>',
+# Shortens callsigns longer than 12 characters to 11 characters plus '>',
 # so they fit in the callsign column of 'clog list'. Only used for display.
 sub short_callsign {
 	my $callsign = shift;
-	return $callsign if (length($callsign) <= 10);
-	return substr($callsign, 0, 9) . '>';
+	return $callsign if (length($callsign) <= 12);
+	return substr($callsign, 0, 11) . '>';
+}
+
+# Returns the columns for 'clog list' from the list_columns setting, and
+# warns about unknown column names (e.g. typos) instead of ignoring them.
+sub list_columns {
+	my $setting = shift;
+	my %known = map { $_ => 1 } qw(mycall callsign qso_date qso_time freq band mode rst_tx rst_rx locator bearing distance serial_tx serial_rx data_tx data_rx qsl dxcc comments);
+	my @columns = ();
+	foreach my $column (split(' ', lc($setting))) {
+		if (exists($known{$column})) {
+			push(@columns, $column);
+		} else {
+			print STDERR "WARNING: unknown column '$column' in list_columns, ignored\n";
+		}
+	}
+	return @columns;
 }
 
 # Lists all entries, or just the record with the given ID. The output
@@ -416,10 +445,14 @@ sub list_log {
 	my ($id, $callsign, $qso_date, $qso_time, $freq, $mode, $rst_tx, $rst_rx, $locator, $serial_tx, $serial_rx, $data_tx, $data_rx, $comments, $qsl_tx, $qsl_rx);
 	$sth->bind_columns(\$id, \$callsign, \$qso_date, \$qso_time, \$freq, \$mode, \$rst_tx, \$rst_rx, \$locator, \$serial_tx, \$serial_rx, \$data_tx, \$data_rx, \$comments, \$qsl_tx, \$qsl_rx);
 	my $header= "ID---";
-	foreach $column (split / /, $config{'list_columns'}) {
+	my @columns = list_columns($config{'list_columns'});
+	foreach $column (@columns) {
 		switch ($column) {
+			case 'mycall' {
+				$header .= " Mycall------";
+			}
 			case 'callsign' {
-				$header .= " Callsign--";
+				$header .= " Callsign----";
 			}
 			case 'qso_date' {
 				$header .= " Date--";
@@ -464,10 +497,10 @@ sub list_log {
 				$header .= " RXd--";
 			}
 			case 'comments' {
-				$header .= " Comments--------------------------------------------";
+				$header .= " Comments------------------------------------------";
 			}
 			case 'dxcc' {
-				$header .= " DXC";
+				$header .= " DXCC-";
 			}
 			case 'qsl' {
 				$header .= " QSL";
@@ -480,10 +513,13 @@ sub list_log {
 	my $distance;
 	while($sth->fetch()) {
 		$line = sprintf ('%5s', $id);
-		foreach $column (split / /, $config{'list_columns'}) {
+		foreach $column (@columns) {
 			switch ($column) {
+				case 'mycall' {
+					$line .= sprintf (' %-12s', short_callsign($config{'mycall'}));
+				}
 				case 'callsign' {
-					$line .= sprintf (' %-10s', short_callsign($callsign));
+					$line .= sprintf (' %-12s', short_callsign($callsign));
 				}
 				case 'qso_date' {
 					$line .= sprintf (' %6s', substr ($qso_date, 2, 2) . substr($qso_date, 5, 2) . substr($qso_date, 8, 2));
@@ -538,10 +574,10 @@ sub list_log {
 					$line .= sprintf (' %5s', $data_rx);
 				}
 				case 'comments' {
-					$line .= ' ' . fit_width($comments, 52, 1);
+					$line .= ' ' . fit_width($comments, 50, 1, $column eq $columns[-1]);
 				}
 				case 'dxcc' {
-					$line .= sprintf (' %-3s', callsign_to_dxcc($dbh, $callsign));
+					$line .= sprintf (' %-5s', callsign_to_dxcc($dbh, $callsign));
 				}
 				case 'qsl' {
 					if ($qsl_tx eq 'Y') {
@@ -557,7 +593,7 @@ sub list_log {
 				}
 			}
 		}
-		print fit_width($line, $config{'columns'}) . "\n";
+		print fit_width($line, $config{'columns'}, 0, 1) . "\n";
 	}
 $sth->finish();
 }
