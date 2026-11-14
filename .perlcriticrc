@@ -1,0 +1,14 @@
+# Perl::Critic settings for CLog, used by 'perlcritic bin/clog t/' and the
+# Perl lint workflow (.github/workflows/perl-lint.yml).
+
+# 4 = "stern": all severity 5 and 4 policies.
+severity = 4
+verbose  = %f:%l:%c: [%p] %m (severity %s)\n
+
+# 'use constant' is fine for the few constants in clog; the policy prefers
+# the Readonly module, which would be an extra dependency.
+[-ValuesAndExpressions::ProhibitConstantPragma]
+
+# Exceptions for single lines are marked with '## no critic' in the code,
+# with the reason. Most of them are caused by the Switch source filter:
+# Perl::Critic reads the code without the filter.

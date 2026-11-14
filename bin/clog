@@ -21,7 +21,9 @@
 # along with CLog.  If not, see <http://www.gnu.org/licenses/>.
 
 use strict;
-use Switch;
+use warnings;
+# Switch is deprecated (and a source filter), but CLog still relies on it.
+use Switch;    ## no critic (Modules::ProhibitEvilModules)
 use DBI;
 use POSIX qw(:math_h);
 use Encode qw(decode encode);
@@ -71,8 +73,10 @@ sub read_configfile {
 	}
 	if (-e $configfile) {
 		if (-r $configfile) {
-			open (CONFIG, '<', $configfile) or die "ERROR: unable to open $configfile: $!\n";
-			while (<CONFIG>) {
+			open (my $config_fh, '<', $configfile) or die "ERROR: unable to open $configfile: $!\n";
+			my @lines = <$config_fh>;
+			close($config_fh);
+			foreach (@lines) {
 				chomp;
 				s/#.*//;
 				s/^\s+//;
@@ -104,7 +108,6 @@ sub read_configfile {
 				}
 			}
 			$config{'mycall'} = uc($config{'mycall'});
-			close CONFIG;
 		} else {
 			print STDERR "WARNING: unable to read $configfile, using defaults\n";
 		}
@@ -204,7 +207,7 @@ my %modes = (
 # comments inside switch blocks free of braces and quotes. Write e.g. a
 # slash that may occur once as a character class with a 0 to 1 quantifier.
 # Test changes with an old Perl (5.26, AlmaLinux 8) and a new one (5.40).
-sub get_type {
+sub get_type {    ## no critic (Subroutines::RequireFinalReturn) -- ends with a return; Perl::Critic misreads the switch block
 	my $arg = shift;
 	my $type = "unknown";
 	# Modes are checked first, some mode names (e.g. C4FM) would
@@ -453,7 +456,7 @@ sub list_log {
 	$sth->bind_columns(\$id, \$callsign, \$qso_date, \$qso_time, \$freq, \$mode, \$rst_tx, \$rst_rx, \$locator, \$serial_tx, \$serial_rx, \$data_tx, \$data_rx, \$comments, \$qsl_tx, \$qsl_rx);
 	my $header= "ID---";
 	my @columns = list_columns($config{'list_columns'});
-	foreach $column (@columns) {
+	foreach my $column (@columns) {
 		switch ($column) {
 			case 'mycall' {
 				$header .= " Mycall------";
@@ -520,7 +523,7 @@ sub list_log {
 	my $distance;
 	while($sth->fetch()) {
 		$line = sprintf ('%5s', $id);
-		foreach $column (@columns) {
+		foreach my $column (@columns) {
 			switch ($column) {
 				case 'mycall' {
 					$line .= sprintf (' %-12s', short_callsign($config{'mycall'}));
@@ -603,6 +606,7 @@ sub list_log {
 		print fit_width($line, $config{'columns'}, 0, 1) . "\n";
 	}
 $sth->finish();
+	return;
 }
 
 
@@ -659,6 +663,7 @@ sub show_entry {
 		print "QSL      : $qsl_sent, $qsl_rcvd\n"
 		
 	}
+	return;
 }
 
 # Used to add an entry to the logbook.
@@ -796,6 +801,7 @@ sub add_entry {
 		print STDERR "ERROR: Callsign, mode and frequency are mandatory (unless set in ~/.clogrc)\n";
 		exit;
 	}
+	return;
 }
 
 # Used to update an entry in the logbook.
@@ -933,6 +939,7 @@ sub update_entry {
 		$sth->execute($comments, $update_id, $config{'mycall'});
 	}
 	list_log($dbh, \%config, $update_id);
+	return;
 }
 
 
@@ -952,6 +959,7 @@ sub set_qsl {
 	my $sth = $dbh->prepare($query);
 	$sth->execute($qsl_id, $config{'mycall'});
 	list_log($dbh, \%config, $qsl_id);
+	return;
 }
 
 # Deletes the record with the given ID from the logbook
@@ -964,6 +972,7 @@ sub delete_entry {
 	my $query = "DELETE FROM qsos WHERE id=? AND mycall=?;";
 	my $sth = $dbh->prepare($query);
 	$sth->execute($search_id, $config{'mycall'});
+	return;
 }
 
 # Converts frequency to a hamradio band. The bands are adapted from the
@@ -1011,7 +1020,7 @@ sub mhz_to_band {
 }
 
 # Converts band to lower and upper frequency (in MHz).
-sub band_to_mhz {
+sub band_to_mhz {    ## no critic (Subroutines::RequireFinalReturn) -- ends with a return; Perl::Critic misreads the switch block
 	my @limits = (0, 0);
 	my $band = shift;
 	switch ($band) {
@@ -1101,6 +1110,7 @@ sub export_adif {
 		print adif_field('COMMENT', $comments);
 		print "<EOR>\n";
 	}
+	return;
 }
 
 # Band designations for the Cabrillo QSO frequency field (the band edge in
@@ -1186,7 +1196,7 @@ sub export_cabrillo {
 		$band = mhz_to_band($freq);
 		$comments =~ s/[\r\n]+/ /g;
 		print "QSO:";
-		foreach $column (split / /, $config{'export_cabrillo_columns'}) {
+		foreach my $column (split / /, $config{'export_cabrillo_columns'}) {
 			switch ($column) {
 				case 'freq' {
 					printf (' %5s', exists($cabrillo_bands{$band}) ? $cabrillo_bands{$band} : '?????');
@@ -1241,6 +1251,7 @@ sub export_cabrillo {
 		print "\n";
 	}
 	print "END-OF-LOG: \n";
+	return;
 }
 
 # Escapes characters with a special meaning in HTML.
@@ -1281,7 +1292,7 @@ sub export_html {
 	$sth->bind_columns(\$id, \$mycall, \$callsign, \$qso_date, \$qso_time, \$freq, \$mode, \$rst_tx, \$rst_rx, \$locator, \$serial_tx, \$serial_rx, \$data_tx, \$data_rx, \$comments, \$qsl_tx, \$qsl_rx);
 	print "<table>\n";
 	print "<tr>";
-	foreach $column (split / /, $config{'export_html_columns'}) {
+	foreach my $column (split / /, $config{'export_html_columns'}) {
 		switch ($column) {
 			case 'mycall' {
 				print "<th>Operator</th>";
@@ -1352,7 +1363,7 @@ sub export_html {
 			$$field = html_escape($$field);
 		}
 		print "<tr>";
-		foreach $column (split / /, $config{'export_html_columns'}) {
+		foreach my $column (split / /, $config{'export_html_columns'}) {
 			switch ($column) {
 				case 'mycall' {
 					print "<td>$mycall</td>";
@@ -1437,6 +1448,7 @@ sub export_html {
 		print "</tr>\n";
 	}
 	print "</table>\n";
+	return;
 }
 
 # Dumps the logbook in CSV format. Helpfull to import your logbook
@@ -1459,6 +1471,7 @@ sub export_csv {
 		$comments =~ s/[\r\n]+/ /g;
 		print join(',', map { csv_quote($_) } ($id, $callsign, $qso_date, $qso_time, $band, $freq, $mode, $rst_tx, $rst_rx, $locator, $serial_tx, $serial_rx, $data_tx, $data_rx, $comments)) . "\n";
 	}
+	return;
 }
 
 
@@ -1484,7 +1497,9 @@ sub import_cty {
 	
 	if (-r $cty_dat_file) {
 		print "Importing $cty_dat_file...\n";
-		open (PREFIX, '<', $cty_dat_file) or die "ERROR: unable to open $cty_dat_file: $!\n";
+		open (my $cty_fh, '<', $cty_dat_file) or die "ERROR: unable to open $cty_dat_file: $!\n";
+		my @lines = <$cty_fh>;
+		close($cty_fh);
 		# One transaction: much faster, and the old data is kept if the
 		# import fails halfway (with InnoDB tables).
 		$dbh->begin_work;
@@ -1494,7 +1509,7 @@ sub import_cty {
 		$query = "DELETE FROM prefixes;";
 		$sth = $dbh->prepare($query);
 		$sth->execute();
-		while (<PREFIX>) {
+		foreach (@lines) {
 			chomp;
 			unless (substr($_, 1, 1) eq ' ') {
 				# This is a new country definition
@@ -1553,7 +1568,6 @@ sub import_cty {
 				}
 			}
 		}
-		close PREFIX;
 		$dbh->commit;
 		$query = "SELECT dxcc FROM dxccs;";
 		$sth = $dbh->prepare($query);
@@ -1566,6 +1580,7 @@ sub import_cty {
 	} else {
 		print STDERR "ERROR: unable to read file: $cty_dat_file\n";
 	}
+	return;
 }
 
 # Finds the DXCC for a callsign using the longest matching prefix. Results
@@ -1655,13 +1670,13 @@ sub statistics {
 	print "\n";
 	print "QSO's per mode/band:\n";
 	print "MODE   ";
-	foreach $band (@bands) {
+	foreach my $band (@bands) {
 		printf ('%5s ', $band);
 	}
 	print "\n";
-	foreach $mode (@modes) {
+	foreach my $mode (@modes) {
 		printf ('%-6s ', $mode);
-		foreach $band (@bands) {
+		foreach my $band (@bands) {
 			if (exists ($qsos{$band}{$mode})) {
 				printf ('%5d ', $qsos{$band}{$mode});
 			} else {
@@ -1674,13 +1689,13 @@ sub statistics {
 
 	print "DXCC per band:\n";
 	print "DXCC ";
-	foreach $band (@bands) {
+	foreach my $band (@bands) {
 		printf ('%5s ', $band);
 	}
 	print "\n";
-	foreach $dxcc (sort keys %dxccs) {
+	foreach my $dxcc (sort keys %dxccs) {
 		printf('%-4s ', $dxcc);
-		foreach $band (@bands) {
+		foreach my $band (@bands) {
 			if (exists $qsos{$band}{'dxccs'}{$dxcc}) {
 				printf ('%5s ', $qsos{$band}{'dxccs'}{$dxcc});
 			} else {
@@ -1692,12 +1707,12 @@ sub statistics {
 	print "\n";
 	print "DXCC summary:\n";
 	print "DXCC ";
-	foreach $band (@bands) {
+	foreach my $band (@bands) {
 		printf ('%5s ', $band);
 	}
 	print "\n";
 	print "     ";
-	foreach $band (@bands) {
+	foreach my $band (@bands) {
 		# Count keys instead of using exists(): the lookups above
 		# autovivify empty hashes for bands without QSO's.
 		my $dxcccount = exists($qsos{$band}{'dxccs'}) ? scalar(keys %{ $qsos{$band}{'dxccs'} }) : 0;
@@ -1709,6 +1724,7 @@ sub statistics {
 	}
 	print "\n";
 	print "\n";
+	return;
 }
 
 sub dbupgrade {
@@ -1757,6 +1773,7 @@ sub dbupgrade {
 		$clog_database_version = $next_version;
 	}
 	print "Upgrade was successfull, the database is now at version " . DBVERSION . ".\n";
+	return;
 }
 
 # degrees to radians
@@ -1808,6 +1825,7 @@ sub show_locator {
 	$distance = int($distance);
 	$bearing = int($bearing);
 	print uc($locator) . ": $distance km, $bearing degrees\n";
+	return;
 }
 
 # Converts QRA-locator to longitude/latitude

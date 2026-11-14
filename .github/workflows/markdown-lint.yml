@@ -1,0 +1,19 @@
+name: Markdown lint
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  markdownlint:
+    name: markdownlint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      # Settings and the files to check are in .markdownlint-cli2.yaml
+      - uses: DavidAnson/markdownlint-cli2-action@v25
