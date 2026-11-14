@@ -3,6 +3,7 @@
 - ADIF export is now ADIF 3.1.4: modes like FT4/JS8/PSK31 and LSB/USB are exported as MODE + SUBMODE, contest exchanges go to STX_STRING/SRX_STRING, empty fields are left out.
 - Cabrillo export: modes are taken from the mode table (digital modes as DG, digital voice as PH), added 30m, 17m, 12m and 1.25m, 2.5mm/2mm are now 122G/134G (Cabrillo 3).
 - The mode column in 'list' and 'statistics' is now 6 characters wide.
+- Added a cpanfile listing the required Perl modules, and documented installing them from CPAN (sudo cpanm --installdeps .) as an alternative to the distribution packages; the README now also lists the AlmaLinux packages.
 - Updated the clog(1) man page: list_columns/columns and truncation in 'list', the dbupgrade command, dB reports, special event callsigns, new examples, fixed typos and outdated links.
 - 'list': callsigns longer than the 12 character callsign column are shortened to 11 characters plus '>' (e.g. ON65SUSKEEN>), so the columns stay aligned. The full callsign is still stored and shown everywhere else.
 - 'list': the 'mycall' column (documented in example.clogrc) was missing and is now supported, the DXCC column is 5 characters wide so codes like 4U1I and HK0/a no longer shift the following columns, unknown names in list_columns are reported with a warning, and column names may be separated by any whitespace.
@@ -10,7 +11,7 @@
 - Single-digit frequencies (e.g. 1m, 3m, 7m) are now recognized.
 - Special event callsigns with 3 or 4 digits (e.g. PA100MGY, DQ2006X, 9A287R) are now recognized without call=.
 - 'add': an argument for a field that is already set (e.g. a locator like JN62PI in the comments, which looks like a callsign) now starts the comments instead of being silently dropped.
-- Fixed: clog did not compile with Switch 2.17 (Perl 5.40), the source filter choked on the callsign regex '\/{0,1}'.
+- Fixed: clog did not compile on Perl 5.40 (with Switch 2.17), the source filter choked on the callsign regex '\/{0,1}'. The regex is now written in a form that works with the Switch filter on both old (5.26, AlmaLinux 8) and new (5.40) Perl versions.
 - import_cty: fields of a country line are now split on ':' and trimmed; the old fixed-width parsing kept leading spaces, so the continent did not fit its column (rejected in strict mode), DXCC codes were stored with leading spaces and '*' (WAE-only) entities were never detected. CRLF files are supported.
 - statistics: DXCC summary showed 0 instead of '-' for bands without QSO's.
 - show: a serial number that was not logged is now shown as '-' instead of 0, like an empty contest exchange.

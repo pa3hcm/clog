@@ -197,6 +197,13 @@ my %modes = (
 # This function tries to recognize the given string. It returns
 # the recognized type (e.g. call, frequency, date) or 'unknown'
 # when not recognized.
+#
+# Note: the Switch source filter differs between Perl versions. Keep the
+# regexes in the case statements below free of the ? quantifier and of an
+# escaped slash directly followed by a quantifier in braces, and keep
+# comments inside switch blocks free of braces and quotes. Write e.g. a
+# slash that may occur once as a character class with a 0 to 1 quantifier.
+# Test changes with an old Perl (5.26, AlmaLinux 8) and a new one (5.40).
 sub get_type {
 	my $arg = shift;
 	my $type = "unknown";
@@ -286,7 +293,7 @@ sub get_type {
 		case /^[A-Za-z]{1,3}\d{1,4}[A-Za-z]{1,12}/ {
 			$type = "is_callsign";
 		}
-		case /^\d{1,2}[A-Za-z]{1,3}\d{1,4}[A-Za-z]{1,12}\/?[A-Za-z0-9]{0,3}/ { # "\/?" instead of "\/{0,1}": the latter breaks the Switch source filter
+		case /^\d{1,2}[A-Za-z]{1,3}\d{1,4}[A-Za-z]{1,12}[\/]{0,1}[A-Za-z0-9]{0,3}/ {
 			$type = "is_callsign";
 		}
 		case /^[Cc][Aa][Ll][Ll]=.*$/ {

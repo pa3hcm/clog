@@ -18,16 +18,52 @@ the website https://pa3hcm.nl/.
 
 ## Requirements
 
-Recent versions of these packages are required:
+These are required:
 
-* Perl, including Switch, DBI and DBD::MySQL
-* MySQL server and client
+* Perl 5.14 or newer, with the modules Switch, DBI and DBD::mysql (listed in
+  the `cpanfile`)
+* MySQL or MariaDB server and client
 
-CLog is developed and tested on Ubuntu 22.04, with the included `perl`,
-`libswitch-perl`, `libdbi-perl`, `libdbd-mysql-perl`, `mysql-server` and
-`mysql-client` packages installed. However, it should run on most UNIX/linux
-platforms. In some occasions you may have to change the perl path on the first
-line of the `clog` file.
+CLog is tested on Ubuntu 26.04 (Perl 5.40), AlmaLinux 8 (Perl 5.26) and
+AlmaLinux 9 (Perl 5.32). It should run on most UNIX/linux platforms. In some
+occasions you may have to change the perl path on the first line of the `clog`
+file.
+
+### Installing the Perl modules
+
+The easiest way is to use the packages of your distribution.
+
+On Ubuntu/Debian:
+
+``` sh
+sudo apt install libswitch-perl libdbi-perl libdbd-mysql-perl
+```
+
+On AlmaLinux/Rocky Linux/RHEL (perl-Switch is in the CRB repository):
+
+``` sh
+sudo dnf config-manager --set-enabled crb
+sudo dnf install perl-Switch perl-DBI perl-DBD-MySQL
+```
+
+On AlmaLinux/RHEL 8, perl-Switch may require the PowerTools repository
+(`sudo dnf config-manager --set-enabled powertools`).
+
+**Alternative: install from CPAN with the cpanfile.** If your distribution
+doesn't provide these packages, or you prefer CPAN, install the modules listed
+in the `cpanfile` with [cpanminus](https://metacpan.org/pod/App::cpanminus),
+from the clog directory (see Installation below):
+
+``` sh
+sudo cpanm --installdeps .
+```
+
+This builds DBD::mysql, which requires a C compiler and the MySQL or MariaDB
+client development files (e.g. `libmariadb-dev` on Ubuntu/Debian, or
+`mariadb-connector-c-devel` on AlmaLinux/RHEL). Install the modules system-wide
+as shown: clog runs in taint mode (`perl -T`), which ignores `PERL5LIB`, so
+modules installed in your home directory (local::lib) or with Carton are not
+found.
 
 
 ## Installation
