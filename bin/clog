@@ -21,12 +21,15 @@
 # along with CLog.  If not, see <http://www.gnu.org/licenses/>.
 
 use strict;
-use Switch;
+use warnings;
+# Switch is deprecated (and a source filter), but CLog still relies on it.
+use Switch;    ## no critic (Modules::ProhibitEvilModules)
 use DBI;
 use POSIX qw(:math_h);
+use Encode qw(decode encode);
 
 # Constants
-use constant VERSION => '1.2.1';
+use constant VERSION => '1.3.0';
 use constant DBVERSION => '1.2';
 use constant PI => 3.14159265358979;
 
@@ -70,14 +73,17 @@ sub read_configfile {
 	}
 	if (-e $configfile) {
 		if (-r $configfile) {
-			open (CONFIG, "<$configfile");
-			while (<CONFIG>) {
+			open (my $config_fh, '<', $configfile) or die "ERROR: unable to open $configfile: $!\n";
+			my @lines = <$config_fh>;
+			close($config_fh);
+			foreach (@lines) {
 				chomp;
 				s/#.*//;
 				s/^\s+//;
 				s/\s+$//;
 				next unless length;
 				my ($var, $value) = split(/\s*=\s*/, $_, 2);
+				next unless defined($value);
 				if ($var eq 'default_mode') { $value = uc($value); }
 				switch ($var) {
 					case [ 'dbhost',
@@ -102,7 +108,6 @@ sub read_configfile {
 				}
 			}
 			$config{'mycall'} = uc($config{'mycall'});
-			close $configfile;
 		} else {
 			print STDERR "WARNING: unable to read $configfile, using defaults\n";
 		}
@@ -122,8 +127,8 @@ sub syntax {
 	print "  clog li[st] [<id>]               List all logbook entries, or just <id>\n";
 	print "  clog lo[cator] <locator>         Show bearing and distance for locator\n";
 	print "  clog sh[ow] <id>                 Show details for given entry\n";
-	print "  clog st[atistics] <id>           Display logbook totals\n";
-	print "  clog export_adif                 Export logbook in ADIF v1 format\n";
+	print "  clog st[atistics]                Display logbook totals\n";
+	print "  clog export_adif                 Export logbook in ADIF v3 format\n";
 	print "  clog export_cab2                 Export logbook in Cabrillo v2.0 format\n";
 	print "  clog export_cab3                 Export logbook in Cabrillo v3.0 format\n";
 	print "  clog export_csv                  Export logbook in CSV format\n";
@@ -131,11 +136,15 @@ sub syntax {
 	print "  clog import_cty <file>           Import countries/prefixes from cty.dat file\n";
 	print "  clog dx[cc] <call|prefix>        Search the imported cty.dat\n";
 	print "  clog qs[l] tx|rx <id>            Set QSL sent/received for given entry\n";
+	print "  clog dbupgrade                   Upgrade the database to the current version\n";
 	print "\n";
 	print "CLog tries to recognize arguments in the following way:\n" ;
 	print "- Frequency always ends with a 'K' (kHz) or 'M' (MHz), decimals are allowed.\n";
-	print "- Reports start with a 't' or 'T' (transmitted), or 'r'/'R' (received)\n";
-	print "- Known modes: SSB LSB USB CW RTTY (AM)TOR PKT AM FM SSTV ATV PAC(TOR) CLO(VER)\n";
+	print "- Reports start with a 't' or 'T' (transmitted), or 'r'/'R' (received),\n";
+	print "  dB reports are allowed too, e.g. t-10 r+05\n";
+	print "- Known modes: SSB LSB USB AM FM CW RTTY (AM)TOR PKT PAC(TOR) CLO(VER) SSTV ATV\n";
+	print "  FT8 FT4 JS8 FST4 Q65 JT65 JT9 MSK144 WSPR MFSK PSK31 PSK63 PSK125 OLIVIA\n";
+	print "  D(-)STAR C4FM DMR FREEDV\n";
 	print "- Date/time formats: yyyy-mm-dd hh:mm (in UTC/GMT)\n";
 	print "- Locator: loc=ccnn loc=ccnncc loc=ccnnccnn\n";
 	print "- Contest exchanges: txs=nnn rxs=nnn txd=ccc rxd=ccc\n";
@@ -147,12 +156,64 @@ sub syntax {
 	return 0;
 }
 
+# Known modes. For each mode: the ADIF mode, the ADIF submode (if any)
+# and the Cabrillo mode (CW, PH, FM, RY or DG; ?? if not applicable).
+my %modes = (
+	# Phone
+	'SSB'    => [ 'SSB',          '',       'PH' ],
+	'LSB'    => [ 'SSB',          'LSB',    'PH' ],
+	'USB'    => [ 'SSB',          'USB',    'PH' ],
+	'AM'     => [ 'AM',           '',       'PH' ],
+	'FM'     => [ 'FM',           '',       'FM' ],
+	# Digital voice
+	'DSTAR'  => [ 'DIGITALVOICE', 'DSTAR',  'PH' ],
+	'C4FM'   => [ 'DIGITALVOICE', 'C4FM',   'PH' ],
+	'DMR'    => [ 'DIGITALVOICE', 'DMR',    'PH' ],
+	'FREEDV' => [ 'DIGITALVOICE', 'FREEDV', 'PH' ],
+	# CW
+	'CW'     => [ 'CW',           '',       'CW' ],
+	# Data
+	'RTTY'   => [ 'RTTY',         '',       'RY' ],
+	'TOR'    => [ 'TOR',          '',       'DG' ],
+	'PKT'    => [ 'PKT',          '',       'DG' ],
+	'PAC'    => [ 'PAC',          '',       'DG' ],
+	'CLO'    => [ 'CLO',          '',       'DG' ],
+	'FT8'    => [ 'FT8',          '',       'DG' ],
+	'FT4'    => [ 'MFSK',         'FT4',    'DG' ],
+	'JS8'    => [ 'MFSK',         'JS8',    'DG' ],
+	'FST4'   => [ 'MFSK',         'FST4',   'DG' ],
+	'Q65'    => [ 'MFSK',         'Q65',    'DG' ],
+	'MFSK'   => [ 'MFSK',         '',       'DG' ],
+	'JT65'   => [ 'JT65',         '',       'DG' ],
+	'JT9'    => [ 'JT9',          '',       'DG' ],
+	'MSK144' => [ 'MSK144',       '',       'DG' ],
+	'WSPR'   => [ 'WSPR',         '',       'DG' ],
+	'PSK31'  => [ 'PSK',          'PSK31',  'DG' ],
+	'PSK63'  => [ 'PSK',          'PSK63',  'DG' ],
+	'PSK125' => [ 'PSK',          'PSK125', 'DG' ],
+	'OLIVIA' => [ 'OLIVIA',       '',       'DG' ],
+	# Image
+	'SSTV'   => [ 'SSTV',         '',       'DG' ],
+	'ATV'    => [ 'ATV',          '',       '??' ],
+);
+
 # This function tries to recognize the given string. It returns
 # the recognized type (e.g. call, frequency, date) or 'unknown'
 # when not recognized.
-sub get_type {
+#
+# Note: the Switch source filter differs between Perl versions. Keep the
+# regexes in the case statements below free of the ? quantifier and of an
+# escaped slash directly followed by a quantifier in braces, and keep
+# comments inside switch blocks free of braces and quotes. Write e.g. a
+# slash that may occur once as a character class with a 0 to 1 quantifier.
+# Test changes with an old Perl (5.26, AlmaLinux 8) and a new one (5.40).
+sub get_type {    ## no critic (Subroutines::RequireFinalReturn) -- ends with a return; Perl::Critic misreads the switch block
 	my $arg = shift;
 	my $type = "unknown";
+	# Modes are checked first, some mode names (e.g. C4FM) would
+	# otherwise be recognized as a callsign. Use call=... to force
+	# a callsign that looks like a mode.
+	return "is_mode" if exists($modes{normalize_mode($arg)});
 	switch ($arg) {
 		# Locator
 		case /^[Ll][Oo][Cc]=[A-Za-z]{2}[0-9]{2}$/ {
@@ -189,13 +250,17 @@ sub get_type {
 		case /^[Rr]\d\d+$/ {
 			$type = "is_rst_rx";
 		}
-		case /^[Rr]\d\d+[A|a|\+]$/ {
+		# Signal report in dB, e.g. FT8: r-12 t+05
+		case /^[Rr][+-]\d{1,2}$/ {
 			$type = "is_rst_rx";
 		}
-		case /^[Rr]\d\d+[A|a|\+]\d+$/ {
+		case /^[Rr]\d\d+[Aa+]$/ {
 			$type = "is_rst_rx";
 		}
-		case /^[Rr]\d\d+[A|a|\+]\d+[Dd][Bb]$/ {
+		case /^[Rr]\d\d+[Aa+]\d+$/ {
+			$type = "is_rst_rx";
+		}
+		case /^[Rr]\d\d+[Aa+]\d+[Dd][Bb]$/ {
 			$type = "is_rst_rx";
 		}
 
@@ -203,13 +268,17 @@ sub get_type {
 		case /^[Tt]\d\d+$/ {
 			$type = "is_rst_tx";
 		}
-		case /^[Tt]\d\d+[A|a|\+]$/ {
+		# Signal report in dB, e.g. FT8: r-12 t+05
+		case /^[Tt][+-]\d{1,2}$/ {
 			$type = "is_rst_tx";
 		}
-		case /^[Tt]\d\d+[A|a|\+]\d+$/ {
+		case /^[Tt]\d\d+[Aa+]$/ {
 			$type = "is_rst_tx";
 		}
-		case /^[Tt]\d\d+[A|a|\+]\d+[Dd][Bb]$/ {
+		case /^[Tt]\d\d+[Aa+]\d+$/ {
+			$type = "is_rst_tx";
+		}
+		case /^[Tt]\d\d+[Aa+]\d+[Dd][Bb]$/ {
 			$type = "is_rst_tx";
 		}
 
@@ -223,10 +292,11 @@ sub get_type {
 		case /^[A-Za-z0-9]{3,12}\/[A-Za-z0-9]{1,3}$/ {
 			$type = "is_callsign";
 		}
-		case /^[A-Za-z]{1,3}\d{1,2}[A-Za-z]{1,12}/ {
+		# Special event stations may use up to 4 digits, e.g. PA100MGY, DQ2006X
+		case /^[A-Za-z]{1,3}\d{1,4}[A-Za-z]{1,12}/ {
 			$type = "is_callsign";
 		}
-		case /^\d{1,2}[A-Za-z]{1,3}\d{1,2}[A-Za-z]{1,12}\/{0,1}[A-Za-z0-9]{0,3}/ {
+		case /^\d{1,2}[A-Za-z]{1,3}\d{1,4}[A-Za-z]{1,12}[\/]{0,1}[A-Za-z0-9]{0,3}/ {
 			$type = "is_callsign";
 		}
 		case /^[Cc][Aa][Ll][Ll]=.*$/ {
@@ -244,49 +314,11 @@ sub get_type {
 		}
 
 		# Frequency
-		case /^\d{2,12}[KkMm]$/ {
+		case /^\d{1,12}[KkMm]$/ {
 			$type = "is_freq";
 		}
 		case /^\d{0,6}\.\d{1,6}[KkMm]$/ {
 			$type = "is_freq";
-		}
-
-		# Mode
-		case /^[AaFf][Mm]$/ {
-			$type = "is_mode";
-		}
-		case /^[Cc][Ww]$/ {
-			$type = "is_mode";
-		}
-		case /^[LlUuSs][Ss][Bb]$/ {
-			$type = "is_mode";
-		}
-		case /^[Rr][Tt]{2,2}[Yy]$/ {
-			$type = "is_mode";
-		}
-		case /^[Tt][Oo][Rr]$/ {
-			$type = "is_mode";
-		}
-		case /^[Aa][Mm][Tt][Oo][Rr]$/ {
-			$type = "is_mode";
-		}
-		case /^[Pp][Kk][Tt]$/ {
-			$type = "is_mode";
-		}
-		case /^[Aa][Tt][Vv]$/ {
-			$type = "is_mode";
-		}
-		case /^[Pp][Aa][Cc]$/ {
-			$type = "is_mode";
-		}
-		case /^[Pp][Aa][Cc][Tt][Oo][Rr]$/ {
-			$type = "is_mode";
-		}
-		case /^[Cc][Ll][Oo]$/ {
-			$type = "is_mode";
-		}
-		case /^[Cc][Ll][Oo][Vv][Ee][Rr]$/ {
-			$type = "is_mode";
 		}
 
 		else {
@@ -294,6 +326,110 @@ sub get_type {
 		}
 	}
 	return ($type);
+}
+
+# Maps mode aliases to the short names stored in the database.
+sub normalize_mode {
+	my $mode = uc(shift);
+	my %aliases = (
+		'AMTOR'  => 'TOR',
+		'PACTOR' => 'PAC',
+		'CLOVER' => 'CLO',
+		'D-STAR' => 'DSTAR',
+		'BPSK31' => 'PSK31',
+	);
+	return exists($aliases{$mode}) ? $aliases{$mode} : $mode;
+}
+
+# The locator column holds at most 6 characters, so 8-character locators
+# are truncated (the extra precision is not used for bearing/distance).
+sub normalize_locator {
+	my $locator = uc(shift);
+	if (length($locator) > 6) {
+		print STDERR "WARNING: locator $locator truncated to " . substr($locator, 0, 6) . "\n";
+		$locator = substr($locator, 0, 6);
+	}
+	return $locator;
+}
+
+# Returns true if the given string is a valid 4 or 6 character
+# maidenhead locator (8 characters are accepted, but only 6 are used).
+sub valid_locator {
+	my $locator = shift;
+	return (defined($locator) && $locator =~ /^[A-Ra-r]{2}[0-9]{2}([A-Xa-x]{2}([0-9]{2})?)?$/);
+}
+
+# Cuts a string to the given number of terminal columns. Unlike substr()
+# this counts characters instead of bytes (UTF-8), never splits a character,
+# counts wide characters (e.g. CJK) as 2 columns, and replaces control
+# characters such as tabs (which expand to up to 8 columns) by a space.
+# With $pad the result is padded with spaces to exactly $width columns,
+# otherwise trailing spaces are removed. With $mark, the last displayed
+# character is replaced by '>' when text was cut off (like callsigns in
+# 'clog list'); only cutting off spaces does not count.
+sub fit_width {
+	my ($string, $width, $pad, $mark) = @_;
+	$string = '' unless defined($string);
+	$width = 80 unless (defined($width) && $width =~ /^\d+$/);
+	my $copy = $string;
+	my $text = eval { decode('UTF-8', $copy, Encode::FB_CROAK) };
+	my $is_utf8 = defined($text);
+	$text = $string unless $is_utf8;    # not UTF-8: one byte per column
+	$text =~ s/[\x00-\x1f\x7f]/ /g;
+	my $out = '';
+	my $columns = 0;
+	my $rest = '';
+	my @chars = split(//, $text);
+	for (my $i = 0; $i < @chars; $i++) {
+		my $char = $chars[$i];
+		my $char_width = 1;
+		if ($char =~ /\p{Mn}|\p{Me}/) {
+			$char_width = 0;    # combining characters
+		} elsif ($char =~ /\p{East_Asian_Width=Wide}|\p{East_Asian_Width=Fullwidth}/) {
+			$char_width = 2;
+		}
+		if ($columns + $char_width > $width) {
+			$rest = join('', @chars[$i .. $#chars]);
+			last;
+		}
+		$out .= $char;
+		$columns += $char_width;
+	}
+	if ($mark && ($rest =~ /\S/) && ($out ne '')) {
+		# Replace the last character (and its combining marks) by '>'
+		$out =~ s/\X$/>/;
+		return $is_utf8 ? encode('UTF-8', $out) : $out;
+	}
+	if ($pad) {
+		$out .= ' ' x ($width - $columns);
+	} else {
+		$out =~ s/\s+$//;
+	}
+	return $is_utf8 ? encode('UTF-8', $out) : $out;
+}
+
+# Shortens callsigns longer than 12 characters to 11 characters plus '>',
+# so they fit in the callsign column of 'clog list'. Only used for display.
+sub short_callsign {
+	my $callsign = shift;
+	return $callsign if (length($callsign) <= 12);
+	return substr($callsign, 0, 11) . '>';
+}
+
+# Returns the columns for 'clog list' from the list_columns setting, and
+# warns about unknown column names (e.g. typos) instead of ignoring them.
+sub list_columns {
+	my $setting = shift;
+	my %known = map { $_ => 1 } qw(mycall callsign qso_date qso_time freq band mode rst_tx rst_rx locator bearing distance serial_tx serial_rx data_tx data_rx qsl dxcc comments);
+	my @columns = ();
+	foreach my $column (split(' ', lc($setting))) {
+		if (exists($known{$column})) {
+			push(@columns, $column);
+		} else {
+			print STDERR "WARNING: unknown column '$column' in list_columns, ignored\n";
+		}
+	}
+	return @columns;
 }
 
 # Lists all entries, or just the record with the given ID. The output
@@ -319,8 +455,12 @@ sub list_log {
 	my ($id, $callsign, $qso_date, $qso_time, $freq, $mode, $rst_tx, $rst_rx, $locator, $serial_tx, $serial_rx, $data_tx, $data_rx, $comments, $qsl_tx, $qsl_rx);
 	$sth->bind_columns(\$id, \$callsign, \$qso_date, \$qso_time, \$freq, \$mode, \$rst_tx, \$rst_rx, \$locator, \$serial_tx, \$serial_rx, \$data_tx, \$data_rx, \$comments, \$qsl_tx, \$qsl_rx);
 	my $header= "ID---";
-	foreach $column (split / /, $config{'list_columns'}) {
+	my @columns = list_columns($config{'list_columns'});
+	foreach my $column (@columns) {
 		switch ($column) {
+			case 'mycall' {
+				$header .= " Mycall------";
+			}
 			case 'callsign' {
 				$header .= " Callsign----";
 			}
@@ -337,7 +477,7 @@ sub list_log {
 				$header .= " MHz------";
 			}
 			case 'mode' {
-				$header .= " Mode";
+				$header .= " Mode--";
 			}
 			case 'rst_tx' {
 				$header .= " TX-";
@@ -367,26 +507,29 @@ sub list_log {
 				$header .= " RXd--";
 			}
 			case 'comments' {
-				$header .= " Comments-----------------------------------------";
+				$header .= " Comments------------------------------------------";
 			}
 			case 'dxcc' {
-				$header .= " DXC";
+				$header .= " DXCC-";
 			}
 			case 'qsl' {
 				$header .= " QSL";
 			}
 		}
 	}
-	print substr($header, 0, $config{'columns'}) . "\n";
+	print fit_width($header, $config{'columns'}) . "\n";
 	my $line;
 	my $bearing;
 	my $distance;
 	while($sth->fetch()) {
 		$line = sprintf ('%5s', $id);
-		foreach $column (split / /, $config{'list_columns'}) {
+		foreach my $column (@columns) {
 			switch ($column) {
+				case 'mycall' {
+					$line .= sprintf (' %-12s', short_callsign($config{'mycall'}));
+				}
 				case 'callsign' {
-					$line .= sprintf (' %-12s', $callsign);
+					$line .= sprintf (' %-12s', short_callsign($callsign));
 				}
 				case 'qso_date' {
 					$line .= sprintf (' %6s', substr ($qso_date, 2, 2) . substr($qso_date, 5, 2) . substr($qso_date, 8, 2));
@@ -401,7 +544,7 @@ sub list_log {
 					$line .= sprintf (' %5s', substr (mhz_to_band($freq), 0, 5));
 				}
 				case 'mode' {
-					$line .= sprintf (' %-4s', $mode);
+					$line .= sprintf (' %-6s', $mode);
 				}
 				case 'rst_tx' {
 					$line .= sprintf (' %-3s', $rst_tx);
@@ -441,12 +584,10 @@ sub list_log {
 					$line .= sprintf (' %5s', $data_rx);
 				}
 				case 'comments' {
-					$comments =~ s/\n/ /g;
-					$comments =~ s/\r/ /g;
-					$line .= sprintf (' %-50s', substr ($comments, 0, 28));
+					$line .= ' ' . fit_width($comments, 50, 1, $column eq $columns[-1]);
 				}
 				case 'dxcc' {
-					$line .= sprintf (' %-3s', callsign_to_dxcc($dbh, $callsign));
+					$line .= sprintf (' %-5s', callsign_to_dxcc($dbh, $callsign));
 				}
 				case 'qsl' {
 					if ($qsl_tx eq 'Y') {
@@ -462,9 +603,10 @@ sub list_log {
 				}
 			}
 		}
-		print substr($line, 0, $config{'columns'}) . "\n";
+		print fit_width($line, $config{'columns'}, 0, 1) . "\n";
 	}
 $sth->finish();
+	return;
 }
 
 
@@ -507,8 +649,8 @@ sub show_entry {
 		} else {
 			print "Locator  : -\n";
 		}
-		if ($serial_tx == 0) { $serial_tx = 0; }
-		if ($serial_rx == 0) { $serial_rx = 0; }
+		if ($serial_tx == 0) { $serial_tx = "-"; }
+		if ($serial_rx == 0) { $serial_rx = "-"; }
 		if ($data_tx eq '') { $data_tx = "-"; }
 		if ($data_rx eq '') { $data_rx = "-"; }
 		print "Sent     : $serial_tx / $data_tx\n";
@@ -521,6 +663,7 @@ sub show_entry {
 		print "QSL      : $qsl_sent, $qsl_rcvd\n"
 		
 	}
+	return;
 }
 
 # Used to add an entry to the logbook.
@@ -545,10 +688,13 @@ sub add_entry {
 	my $comments = '';
 	my $rest_is_comments = 0;
 
-	# Parse the given arguments
+	# Parse the given arguments. A recognized argument for a field that is
+	# already set (e.g. a locator like JN62PI, which looks like a callsign)
+	# starts the comments, instead of being silently dropped.
+	my %seen = ();
 	foreach my $arg (@args) {
 		my $type = get_type($arg);
-		if (($rest_is_comments == 0) && ($type ne 'unknown')) {
+		if (($rest_is_comments == 0) && ($type ne 'unknown') && !$seen{$type}++) {
 			switch ($type) {
 				case 'is_callsign' {
 					if ($callsign eq '') {
@@ -628,15 +774,14 @@ sub add_entry {
 		}
 	}
 	# Insert default values in unset fields
-	if ($freq eq '') { $mode = $config{'default_freq'}; }
+	if ($freq eq '') { $freq = $config{'default_freq'}; }
 	if ($mode eq '') { $mode = $config{'default_mode'}; }
 	if ($rst_rx eq '') { $rst_rx = $config{'default_rst_rx'}; }
 	if ($rst_tx eq '') { $rst_tx = $config{'default_rst_tx'}; }
 
 	# Process aliases for modes
-	if ($mode eq 'AMTOR') { $mode = 'TOR'; }
-	if ($mode eq 'PACTOR') { $mode = 'PAC'; }
-	if ($mode eq 'CLOVER') { $mode = 'CLO'; }
+	$mode = normalize_mode($mode);
+	$locator = normalize_locator($locator);
 
 	# Now prepare all fields and put then in the database
 	my @now = gmtime;
@@ -656,6 +801,7 @@ sub add_entry {
 		print STDERR "ERROR: Callsign, mode and frequency are mandatory (unless set in ~/.clogrc)\n";
 		exit;
 	}
+	return;
 }
 
 # Used to update an entry in the logbook.
@@ -711,7 +857,7 @@ sub update_entry {
 					$sth->execute($freq, $update_id, $config{'mycall'});
 				}
 				case 'is_mode' {
-					$mode = uc($arg);
+					$mode = normalize_mode($arg);
 					$query = "UPDATE qsos SET mode=? WHERE id=? AND mycall=?;";
 					$sth = $dbh->prepare($query);
 					$sth->execute($mode, $update_id, $config{'mycall'});
@@ -733,6 +879,7 @@ sub update_entry {
 				case 'is_locator' {
 					$locator = uc($arg);
 					$locator =~ s/^[Ll][Oo][Cc]=//;
+					$locator = normalize_locator($locator);
 					$query = "UPDATE qsos SET locator=? WHERE id=? AND mycall=?;";
 					$sth = $dbh->prepare($query);
 					$sth->execute($locator, $update_id, $config{'mycall'});
@@ -792,6 +939,7 @@ sub update_entry {
 		$sth->execute($comments, $update_id, $config{'mycall'});
 	}
 	list_log($dbh, \%config, $update_id);
+	return;
 }
 
 
@@ -811,6 +959,7 @@ sub set_qsl {
 	my $sth = $dbh->prepare($query);
 	$sth->execute($qsl_id, $config{'mycall'});
 	list_log($dbh, \%config, $qsl_id);
+	return;
 }
 
 # Deletes the record with the given ID from the logbook
@@ -823,47 +972,55 @@ sub delete_entry {
 	my $query = "DELETE FROM qsos WHERE id=? AND mycall=?;";
 	my $sth = $dbh->prepare($query);
 	$sth->execute($search_id, $config{'mycall'});
+	return;
 }
 
 # Converts frequency to a hamradio band. The bands are adapted from the
 # ADIF v1 specification. So if you need additional bands, don't blame me,
 # but the ADIF developers ;-)
+# Integer MHz ranges (inclusive) per band. A plain range comparison is used
+# instead of Switch array matching, which builds a list of up to 9000
+# elements for every lookup.
+my @band_table = (
+	[      1,      1, '160m'   ],
+	[      3,      4, '80m'    ],
+	[      7,      7, '40m'    ],
+	[     10,     10, '30m'    ],
+	[     14,     14, '20m'    ],
+	[     18,     18, '17m'    ],
+	[     21,     21, '15m'    ],
+	[     24,     24, '12m'    ],
+	[     28,     29, '10m'    ],
+	[     50,     54, '6m'     ],
+	[    144,    148, '2m'     ],
+	[    220,    225, '1.25m'  ],
+	[    420,    450, '70cm'   ],
+	[    902,    928, '35cm'   ],
+	[   1240,   1300, '23cm'   ],
+	[   2300,   2450, '13cm'   ],
+	[   3400,   3410, '9cm'    ],
+	[   5650,   5850, '6cm'    ],
+	[  10000,  10500, '3cm'    ],
+	[  24000,  24250, '1.25cm' ],
+	[  47000,  47200, '6mm'    ],
+	[  75500,  78000, '4mm'    ],
+	[ 122250, 123000, '2.5mm'  ],
+	[ 134000, 136000, '2mm'    ],
+	[ 241000, 250000, '1mm'    ],
+);
+
 sub mhz_to_band {
-	my $band = '';
-	my $mhz = int(shift);
-	switch ($mhz) {
-		case 1                { $band = '160m'; }
-		case [3,4]            { $band = '80m'; }
-		case 7                { $band = '40m'; }
-		case 10               { $band = '30m'; }
-		case 14               { $band = '20m'; }
-		case 18               { $band = '17m'; }
-		case 21               { $band = '15m'; }
-		case 24               { $band = '12m'; }
-		case [28,29]          { $band = '10m'; }
-		case [50..54]         { $band = '6m'; }
-		case [144..148]       { $band = '2m'; }
-		case [220..225]       { $band = '1.25m'; }
-		case [420..450]       { $band = '70cm'; }
-		case [902..928]       { $band = '35cm'; }
-		case [1240..1300]     { $band = '23cm'; }
-		case [2300..2450]     { $band = '13cm'; }
-		case [3400..3410]     { $band = '9cm'; }
-		case [5650..5850]     { $band = '6cm'; }
-		case [10000..10500]   { $band = '3cm'; }
-		case [24000..24250]   { $band = '1.25cm'; }
-		case [47000..47200]   { $band = '6mm'; }
-		case [75500..78000]   { $band = '4mm'; }
-		case [122250..123000] { $band = '2.5mm'; }
-		case [134000..136000] { $band = '2mm'; }
-		case [241000..250000] { $band = '1mm'; }
-		else                  { $band = ''; }
+	my $freq = shift;
+	return '' unless (defined($freq) && $freq =~ /^\s*\d*\.?\d+\s*$/);
+	my $mhz = int($freq);
+	foreach my $range (@band_table) {
+		return $range->[2] if ($mhz >= $range->[0] && $mhz <= $range->[1]);
 	}
-	return $band;
+	return '';
 }
 
 # Converts band to lower and upper frequency (in MHz).
-sub band_to_mhz {
+sub band_to_mhz {    ## no critic (Subroutines::RequireFinalReturn) -- ends with a return; Perl::Critic misreads the switch block
 	my @limits = (0, 0);
 	my $band = shift;
 	switch ($band) {
@@ -897,7 +1054,17 @@ sub band_to_mhz {
 	return @limits;
 }
 
-# Dumps the logbook in ADIF v1 format. Helpfull to import your logbook
+# Formats one ADIF field, returns an empty string for empty values. The
+# optional data type indicator is only used for dates, times and numbers.
+sub adif_field {
+	my ($name, $value, $type) = @_;
+	return '' unless (defined($value) && $value ne '');
+	my $field = "<$name:" . length($value);
+	$field .= ":$type" if defined($type);
+	return "$field>$value";
+}
+
+# Dumps the logbook in ADIF v3 format. Helpfull to import your logbook
 # into other logbook software, a QSL-sticker tool, converter for
 # contest logs, etc...
 sub export_adif {
@@ -912,42 +1079,51 @@ sub export_adif {
 	$sth->execute($config{'mycall'});
 	my ($id, $mycall, $callsign, $qso_date, $qso_time, $freq, $mode, $rst_tx, $rst_rx, $locator, $serial_tx, $serial_rx, $data_tx, $data_rx, $comments);
 	$sth->bind_columns(\$id, \$mycall, \$callsign, \$qso_date, \$qso_time, \$freq, \$mode, \$rst_tx, \$rst_rx, \$locator, \$serial_tx, \$serial_rx, \$data_tx, \$data_rx, \$comments);
-	print "CLog " . VERSION . " by Ernest Neijenhuis PA3HCM - ADIF v1.00 export<ADIF_VER:4>1.00<EOH>\n";
+	print "CLog " . VERSION . " by Ernest Neijenhuis PA3HCM - ADIF export\n";
+	print adif_field('ADIF_VER', '3.1.4') . adif_field('PROGRAMID', 'CLog') . adif_field('PROGRAMVERSION', VERSION) . "<EOH>\n";
 	while($sth->fetch()) {
 		$qso_date =~ s/-//g;
 		$qso_time =~ s/://g;
 		$qso_time = substr($qso_time, 0, 4);
 		$band = mhz_to_band($freq);
 		$comments =~ s/[\r\n]+/ /g;
-		print "<CALL:" . length($callsign) . ":C>$callsign";
-		print "<OPERATOR:" . length($mycall) . ":C>$mycall";
-		print "<QSO_DATE:8:D>$qso_date";
-		print "<TIME_ON:4:T>$qso_time";
-		print "<BAND:" . length($band) . ":C>$band";
-		print "<FREQ:" . length($freq) . ":N>$freq";
-		if (($mode eq 'LSB') || ($mode eq 'USB')) { $mode = 'SSB'; }
-		print "<MODE:" . length($mode) . ":C>$mode";
-		if ($rst_tx ne '') { print "<RST_SENT:" . length($rst_tx) . ":C>$rst_tx"; }
-		if ($rst_rx ne '') { print "<RST_RCVD:" . length($rst_rx) . ":C>$rst_rx"; }
-		if ($locator ne '') { print "<GRIDSQUARE:" . length($locator) . ":C>$locator"; }
-		if ($serial_tx > 0) {
-			print "<STX:" . length($serial_tx) . ":N>$serial_tx";
-		} else {
-			if ($data_tx ne '') {
-				print "<STX:" . length($data_tx) . ":C>$data_tx";
-			}
+		# Modes like FT4, JS8 and PSK31 are submodes in ADIF 3
+		my ($adif_mode, $adif_submode) = ($mode, '');
+		if (exists($modes{$mode})) {
+			($adif_mode, $adif_submode) = @{ $modes{$mode} }[0, 1];
 		}
-		if ($serial_rx > 0) {
-			print "<SRX:" . length($serial_rx) . ":N>$serial_rx";
-		} else {
-			if ($data_rx ne '') {
-				print "<SRX:" . length($data_rx) . ":C>$data_rx";
-			}
-		}
-		if ($comments ne '') { print "<COMMENT:" . length($comments) . ":C>$comments"; }
+		print adif_field('CALL', $callsign);
+		print adif_field('OPERATOR', $mycall);
+		print adif_field('QSO_DATE', $qso_date, 'D');
+		print adif_field('TIME_ON', $qso_time, 'T');
+		print adif_field('BAND', $band);
+		print adif_field('FREQ', $freq, 'N');
+		print adif_field('MODE', $adif_mode);
+		print adif_field('SUBMODE', $adif_submode);
+		print adif_field('RST_SENT', $rst_tx);
+		print adif_field('RST_RCVD', $rst_rx);
+		print adif_field('GRIDSQUARE', $locator);
+		print adif_field('STX', $serial_tx, 'N') if ($serial_tx > 0);
+		print adif_field('STX_STRING', $data_tx);
+		print adif_field('SRX', $serial_rx, 'N') if ($serial_rx > 0);
+		print adif_field('SRX_STRING', $data_rx);
+		print adif_field('COMMENT', $comments);
 		print "<EOR>\n";
 	}
+	return;
 }
+
+# Band designations for the Cabrillo QSO frequency field (the band edge in
+# kHz for HF, MHz/GHz designations for VHF and up, as in the Cabrillo 3 spec).
+my %cabrillo_bands = (
+	'160m' => '1800', '80m' => '3500', '40m' => '7000', '30m' => '10100',
+	'20m' => '14000', '17m' => '18068', '15m' => '21000', '12m' => '24890',
+	'10m' => '28000', '6m' => '50', '2m' => '144', '1.25m' => '222',
+	'70cm' => '432', '35cm' => '902', '23cm' => '1.2G', '13cm' => '2.3G',
+	'9cm' => '3.4G', '6cm' => '5.7G', '3cm' => '10G', '1.25cm' => '24G',
+	'6mm' => '47G', '4mm' => '75G', '2.5mm' => '122G', '2mm' => '134G',
+	'1mm' => '241G',
+);
 
 # Dumps the logbook in Cabrillo v3 format, normally used to submit a contest log to the contest manager or log robot.
 sub export_cabrillo {
@@ -979,12 +1155,12 @@ sub export_cabrillo {
 		print "CLAIMED-SCORE: \n";
 		print "CLUB: \n";
 		print "CONTEST: \n";
-		print "CREATED-BY: CLog " . VERSION . " - by Ernest Neijenhuis PA3HCM\n";
+		print "CREATED-BY: CLog " . VERSION . " by Ernest Neijenhuis PA3HCM\n";
 		print "LOCATION: \n";
 		print "NAME: \n";
 		print "ADDRESS: \n";
 		print "ADDRESS-CITY: \n";
-		print "ADDRESS-STATE-PRIVINCE: \n";
+		print "ADDRESS-STATE-PROVINCE: \n";
 		print "ADDRESS-POSTALCODE: \n";
 		print "ADDRESS-COUNTRY: \n";
 		print "OPERATORS: \n";
@@ -1020,45 +1196,13 @@ sub export_cabrillo {
 		$band = mhz_to_band($freq);
 		$comments =~ s/[\r\n]+/ /g;
 		print "QSO:";
-		foreach $column (split / /, $config{'export_cabrillo_columns'}) {
+		foreach my $column (split / /, $config{'export_cabrillo_columns'}) {
 			switch ($column) {
 				case 'freq' {
-					switch ($band) {
-						case '160m'   { print '  1800'; }
-						case '80m'    { print '  3500'; }
-						case '40m'    { print '  7000'; }
-						case '20m'    { print ' 14000'; }
-						case '15m'    { print ' 21000'; }
-						case '10m'    { print ' 28000'; }
-						case '6m'     { print '    50'; }
-						case '2m'     { print '   144'; }
-						case '70cm'   { print '   432'; }
-						case '35cm'   { print '   902'; }
-						case '23cm'   { print '  1.2G'; }
-						case '13cm'   { print '  2.3G'; }
-						case '9cm'    { print '  3.4G'; }
-						case '6cm'    { print '  5.7G'; }
-						case '3cm'    { print '   10G'; }
-						case '1.25cm' { print '   24G'; }
-						case '6mm'    { print '   47G'; }
-						case '4mm'    { print '   75G'; }
-						case '2.5mm'  { print '  119G'; }
-						case '2mm'    { print '  142G'; }
-						case '1mm'    { print '  241G'; }
-						else          { print ' ?????'; }
-					}
+					printf (' %5s', exists($cabrillo_bands{$band}) ? $cabrillo_bands{$band} : '?????');
 				}
 				case 'mode' {
-					switch ($mode) {
-						case 'LSB'  { print " PH"; }
-						case 'USB'  { print " PH"; }
-						case 'SSB'  { print " PH"; }
-						case 'AM'   { print " PH"; }
-						case 'CW'   { print " CW"; }
-						case 'FM'   { print " FM"; }
-						case 'RTTY' { print " RY"; }
-						else        { print " ??"; }
-					}
+					print ' ' . (exists($modes{$mode}) ? $modes{$mode}->[2] : '??');
 				}
 				case 'qso_date' {
 					print " $qso_date";
@@ -1107,6 +1251,27 @@ sub export_cabrillo {
 		print "\n";
 	}
 	print "END-OF-LOG: \n";
+	return;
+}
+
+# Escapes characters with a special meaning in HTML.
+sub html_escape {
+	my $s = shift;
+	return '' unless defined($s);
+	$s =~ s/&/&amp;/g;
+	$s =~ s/</&lt;/g;
+	$s =~ s/>/&gt;/g;
+	$s =~ s/"/&quot;/g;
+	$s =~ s/'/&#39;/g;
+	return $s;
+}
+
+# Quotes a value for CSV output: embedded double quotes are doubled.
+sub csv_quote {
+	my $s = shift;
+	$s = '' unless defined($s);
+	$s =~ s/"/""/g;
+	return '"' . $s . '"';
 }
 
 # Dumps the logbook in a HTML table. Helpfull to import your logbook into your website.
@@ -1127,7 +1292,7 @@ sub export_html {
 	$sth->bind_columns(\$id, \$mycall, \$callsign, \$qso_date, \$qso_time, \$freq, \$mode, \$rst_tx, \$rst_rx, \$locator, \$serial_tx, \$serial_rx, \$data_tx, \$data_rx, \$comments, \$qsl_tx, \$qsl_rx);
 	print "<table>\n";
 	print "<tr>";
-	foreach $column (split / /, $config{'export_html_columns'}) {
+	foreach my $column (split / /, $config{'export_html_columns'}) {
 		switch ($column) {
 			case 'mycall' {
 				print "<th>Operator</th>";
@@ -1193,8 +1358,12 @@ sub export_html {
 		$qso_time = substr($qso_time, 0, 5);
 		$band = mhz_to_band($freq);
 		$comments =~ s/[\r\n]+/ /g;
+		# Escape all free-text fields, the output is meant for web pages
+		foreach my $field (\$mycall, \$callsign, \$freq, \$mode, \$rst_tx, \$rst_rx, \$locator, \$data_tx, \$data_rx, \$comments) {
+			$$field = html_escape($$field);
+		}
 		print "<tr>";
-		foreach $column (split / /, $config{'export_html_columns'}) {
+		foreach my $column (split / /, $config{'export_html_columns'}) {
 			switch ($column) {
 				case 'mycall' {
 					print "<td>$mycall</td>";
@@ -1229,7 +1398,7 @@ sub export_html {
 				case 'bearing' {
 					if (($locator ne '') && ($config{'mylocator'} ne '')) {
 						($bearing, $distance) = beardist(qratoll($config{'mylocator'}), qratoll($locator));
-						print "<td>$bearing</td>";
+						printf ('<td>%.0f</td>', $bearing);
 					} else {
 						print "<td></td>";
 					}
@@ -1237,7 +1406,7 @@ sub export_html {
 				case 'distance' {
 					if (($locator ne '') && ($config{'mylocator'} ne '')) {
 						($bearing, $distance) = beardist(qratoll($config{'mylocator'}), qratoll($locator));
-						print "<td>$distance</td>";
+						printf ('<td>%.0f</td>', $distance);
 					} else {
 						print "<td></td>";
 					}
@@ -1279,6 +1448,7 @@ sub export_html {
 		print "</tr>\n";
 	}
 	print "</table>\n";
+	return;
 }
 
 # Dumps the logbook in CSV format. Helpfull to import your logbook
@@ -1299,23 +1469,9 @@ sub export_csv {
 	while($sth->fetch()) {
 		$band = mhz_to_band($freq);
 		$comments =~ s/[\r\n]+/ /g;
-		print '"' . $id . '",';
-		print '"' . $callsign . '",';
-		print '"' . $qso_date . '",';
-		print '"' . $qso_time . '",';
-		print '"' . $band . '",';
-		print '"' . $freq . '",';
-		print '"' . $mode . '",';
-		print '"' . $rst_tx . '",';
-		print '"' . $rst_rx . '",';
-		print '"' . $locator . '",';
-		print '"' . $serial_tx . '",';
-		print '"' . $serial_rx . '",';
-		print '"' . $data_tx . '",';
-		print '"' . $data_rx . '",';
-		print '"' . $comments . '"';
-		print "\n";
+		print join(',', map { csv_quote($_) } ($id, $callsign, $qso_date, $qso_time, $band, $freq, $mode, $rst_tx, $rst_rx, $locator, $serial_tx, $serial_rx, $data_tx, $data_rx, $comments)) . "\n";
 	}
+	return;
 }
 
 
@@ -1341,30 +1497,37 @@ sub import_cty {
 	
 	if (-r $cty_dat_file) {
 		print "Importing $cty_dat_file...\n";
-		open (PREFIX, "<$cty_dat_file");
+		open (my $cty_fh, '<', $cty_dat_file) or die "ERROR: unable to open $cty_dat_file: $!\n";
+		my @lines = <$cty_fh>;
+		close($cty_fh);
+		# One transaction: much faster, and the old data is kept if the
+		# import fails halfway (with InnoDB tables).
+		$dbh->begin_work;
 		$query = "DELETE FROM dxccs;";
 		$sth = $dbh->prepare($query);
 		$sth->execute();
 		$query = "DELETE FROM prefixes;";
 		$sth = $dbh->prepare($query);
 		$sth->execute();
-		while (<PREFIX>) {
+		foreach (@lines) {
 			chomp;
 			unless (substr($_, 1, 1) eq ' ') {
 				# This is a new country definition
-				$country = substr ($_, 0, 26); $country =~ s/:\s*$//;
-				$cqzone = substr ($_, 26, 5); $cqzone =~ s/:\s*$//;
-				$ituzone = substr ($_, 31, 5); $ituzone =~ s/:\s*$//;
-				$continent = substr ($_, 36, 5); $continent =~ s/:\s*$//;
-				$latitude = substr ($_, 41, 9); $latitude =~ s/:\s*$//;
-				$longitude = substr ($_, 50, 10); $longitude =~ s/:\s*$//;
-				$gmt_offset = substr ($_, 60, 9); $gmt_offset =~ s/:\s*$//;
-				$dxcc = substr ($_, 69, 6); $dxcc =~ s/:\s*$//;
+				# Fields are separated by ':', and padded with spaces
+				# that must not end up in the database (e.g. '  EU'
+				# does not fit in the continent column).
+				s/\r$//;
+				($country, $cqzone, $ituzone, $continent, $latitude, $longitude, $gmt_offset, $dxcc) = map { s/^\s+|\s+$//gr } split(/:/, $_);
+				unless (defined($dxcc) && $dxcc ne '') {
+					die "ERROR: unexpected line in $cty_dat_file: $_\n";
+				}
+				# The column is ENUM('Y','N'); inserting 1/0 is rejected by
+				# MySQL in strict mode ('0' is not a valid ENUM index).
 				if (substr($dxcc, 0, 1) eq '*') {
-					$german_dxcc = 1;
+					$german_dxcc = 'Y';
 					$dxcc =~ s/^\*//;
 				} else {
-					$german_dxcc = 0;
+					$german_dxcc = 'N';
 				}
 				$query = "INSERT INTO dxccs (country, cqzone, ituzone, continent, latitude, longitude, gmt_offset, dxcc, german_dxcc) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);";
 				$sth = $dbh->prepare($query);
@@ -1374,10 +1537,12 @@ sub import_cty {
 				s/;$//;
 				@prefix = split /,/;
 				for ($i=0; $i<@prefix;$i++) {
-					$prefix[$i] =~ s/\(.+\)//;
-					$prefix[$i] =~ s/\[.+\]//;
+					# Strip override markers: (CQ zone) [ITU zone]
+					# <lat/long> {continent} ~UTC offset~
+					$prefix[$i] =~ s/[(\[<{~].*$//;
 					$prefix[$i] =~ s/^=//;
 					$prefix[$i] =~ s/\;//;
+					next if ($prefix[$i] eq '');
 					$query = "SELECT dxcc AS found_dxcc FROM prefixes WHERE prefix=?;";
 					$sth = $dbh->prepare($query);
 					$sth->execute($prefix[$i]);
@@ -1403,7 +1568,7 @@ sub import_cty {
 				}
 			}
 		}
-		close PREFIX;
+		$dbh->commit;
 		$query = "SELECT dxcc FROM dxccs;";
 		$sth = $dbh->prepare($query);
 		$sth->execute();
@@ -1415,33 +1580,24 @@ sub import_cty {
 	} else {
 		print STDERR "ERROR: unable to read file: $cty_dat_file\n";
 	}
+	return;
 }
 
+# Finds the DXCC for a callsign using the longest matching prefix. Results
+# are cached, so 'list' and 'statistics' do one query per unique callsign
+# instead of one query per prefix length per QSO.
+my %dxcc_cache = ();
 sub callsign_to_dxcc {
 	my $dbh = shift;
 	my $callsign = shift;
-	my $i;
-	my $found = 0;
-	my $query = '';
-	my $dxcc = '';
-	my $sth;
-	my $callsign_size = length($callsign);
-	for ($i=$callsign_size; $i>=1; $i--) {
-		$callsign = substr($callsign, 0, $i);
-		$query = "SELECT dxcc FROM prefixes WHERE prefix=?;";
-		$sth = $dbh->prepare($query);
-		$sth->execute($callsign);
-		if ($sth->rows == 1) {
-			$found = 1;
-			($dxcc) = $sth->fetchrow;
-			last;
-		}
-	}
-	if ($found == 1) {
-		return $dxcc;
-	} else {
-		return '';
-	}
+	return '' unless (defined($callsign) && $callsign ne '');
+	return $dxcc_cache{$callsign} if exists($dxcc_cache{$callsign});
+	my @candidates = map { substr($callsign, 0, $_) } (1 .. length($callsign));
+	my $query = 'SELECT dxcc FROM prefixes WHERE prefix IN (' . join(',', ('?') x @candidates) . ') ORDER BY LENGTH(prefix) DESC LIMIT 1;';
+	my ($dxcc) = $dbh->selectrow_array($query, undef, @candidates);
+	$dxcc = '' unless defined($dxcc);
+	$dxcc_cache{$callsign} = $dxcc;
+	return $dxcc;
 }
 
 sub dxcc_to_country {
@@ -1513,14 +1669,14 @@ sub statistics {
 	}
 	print "\n";
 	print "QSO's per mode/band:\n";
-	print "MODE ";
-	foreach $band (@bands) {
+	print "MODE   ";
+	foreach my $band (@bands) {
 		printf ('%5s ', $band);
 	}
 	print "\n";
-	foreach $mode (@modes) {
-		printf ('%-4s ', $mode);
-		foreach $band (@bands) {
+	foreach my $mode (@modes) {
+		printf ('%-6s ', $mode);
+		foreach my $band (@bands) {
 			if (exists ($qsos{$band}{$mode})) {
 				printf ('%5d ', $qsos{$band}{$mode});
 			} else {
@@ -1533,13 +1689,13 @@ sub statistics {
 
 	print "DXCC per band:\n";
 	print "DXCC ";
-	foreach $band (@bands) {
+	foreach my $band (@bands) {
 		printf ('%5s ', $band);
 	}
 	print "\n";
-	foreach $dxcc (sort keys %dxccs) {
+	foreach my $dxcc (sort keys %dxccs) {
 		printf('%-4s ', $dxcc);
-		foreach $band (@bands) {
+		foreach my $band (@bands) {
 			if (exists $qsos{$band}{'dxccs'}{$dxcc}) {
 				printf ('%5s ', $qsos{$band}{'dxccs'}{$dxcc});
 			} else {
@@ -1551,17 +1707,16 @@ sub statistics {
 	print "\n";
 	print "DXCC summary:\n";
 	print "DXCC ";
-	foreach $band (@bands) {
+	foreach my $band (@bands) {
 		printf ('%5s ', $band);
 	}
 	print "\n";
 	print "     ";
-	foreach $band (@bands) {
-		if (exists ($qsos{$band}{'dxccs'})) {
-			my $dxcccount = 0;
-			foreach $dxcc (keys %{ $qsos{$band}{'dxccs'} }) {
-				$dxcccount++;
-			}
+	foreach my $band (@bands) {
+		# Count keys instead of using exists(): the lookups above
+		# autovivify empty hashes for bands without QSO's.
+		my $dxcccount = exists($qsos{$band}{'dxccs'}) ? scalar(keys %{ $qsos{$band}{'dxccs'} }) : 0;
+		if ($dxcccount > 0) {
 			printf ('%5s ', $dxcccount);
 		} else {
 			print "    - ";
@@ -1569,6 +1724,7 @@ sub statistics {
 	}
 	print "\n";
 	print "\n";
+	return;
 }
 
 sub dbupgrade {
@@ -1579,57 +1735,45 @@ sub dbupgrade {
 	my $sth = $dbh->prepare($query);
 	$sth->execute();
 	my ($clog_database_version) = $sth->fetchrow_array;
-	switch ($clog_database_version) {
-		case '0.5b' {
-			print "Upgrading from $clog_database_version to " . DBVERSION . "...\n";
-			$dbh->do("ALTER TABLE qsos ADD mycall    VARCHAR(12) NOT NULL AFTER id;")            || die "ERROR: upgrade failed! See the README file for tips on how to solve this.\n";
-			$dbh->do("ALTER TABLE qsos ADD locator   VARCHAR(12) NOT NULL AFTER rst_rx;")        || die "ERROR: upgrade failed! See the README file for tips on how to solve this.\n";
-			$dbh->do("ALTER TABLE qsos ADD serial_tx INT NOT NULL DEFAULT '0' AFTER locator;")   || die "ERROR: upgrade failed! See the README file for tips on how to solve this.\n";
-			$dbh->do("ALTER TABLE qsos ADD serial_rx INT NOT NULL DEFAULT '0' AFTER serial_tx;") || die "ERROR: upgrade failed! See the README file for tips on how to solve this.\n";
-			$dbh->do("ALTER TABLE qsos ADD data_tx   VARCHAR(12) NOT NULL AFTER serial_rx;")     || die "ERROR: upgrade failed! See the README file for tips on how to solve this.\n";
-			$dbh->do("ALTER TABLE qsos ADD data_rx   VARCHAR(12) NOT NULL AFTER data_tx;")       || die "ERROR: upgrade failed! See the README file for tips on how to solve this.\n";
-			$dbh->do("UPDATE qsos SET mycall=' " . $config{'mycall'} . "' WHERE mycall='';")     || die "ERROR: upgrade failed!\n";
-			$dbh->do("UPDATE settings SET setting_value='0.6b' WHERE setting_name='clog_database_version';") || die "ERROR: upgrade failed!\n";
-			print "Upgrade was successfull.\n";
-			print "Now run 'clog dbupgrade' again to upgrade to version 0.6b!\n";
-		}
-		case '0.6b' {
-			print "Upgrading from $clog_database_version to 0.8b...\n";
-			$dbh->do("UPDATE settings SET setting_value='0.8b' WHERE setting_name='clog_database_version';") || die "ERROR: upgrade failed!\n";
-			print "Upgrade was successfull.\n";
-			print "Now run 'clog dbupgrade' again to upgrade to version 0.9b!\n";
-		}
-		case '0.8b' {
-			print "Upgrading from $clog_database_version to 0.9b...\n";
-			$dbh->do("UPDATE settings SET setting_value='0.9b' WHERE setting_name='clog_database_version';") || die "ERROR: upgrade failed!\n";
-			$dbh->do("ALTER TABLE qsos MODIFY mycall VARCHAR(32);") || die "ERROR: upgrade failed!\n";
-			$dbh->do("ALTER TABLE qsos MODIFY callsign VARCHAR(32);") || die "ERROR: upgrade failed!\n";
-			print "Upgrade was successfull.\n";
-			print "Now run 'clog dbupgrade' again to upgrade to version 1.0!\n";
-		}
-		case '0.9b' {
-			print "Upgrading from $clog_database_version to 1.0...\n";
-			$dbh->do("UPDATE settings SET setting_value='1.0' WHERE setting_name='clog_database_version';") || die "ERROR: upgrade failed!\n";
-			print "Upgrade was successfull.\n";
-		}
-		case '1.0' {
-			print "Upgrading from $clog_database_version to 1.1...\n";
-			$dbh->do("UPDATE settings SET setting_value='1.1' WHERE setting_name='clog_database_version';") || die "ERROR: upgrade failed!\n";
-			print "Upgrade was successfull.\n";
-		}
-		case '1.1' {
-			print "Upgrading from $clog_database_version to 1.2...\n";
-			$dbh->do("ALTER TABLE dxccs MODIFY gmt_offset VARCHAR(6);") || die "ERROR: upgrade failed!\n";
-			$dbh->do("UPDATE settings SET setting_value='1.2' WHERE setting_name='clog_database_version';") || die "ERROR: upgrade failed!\n";
-			print "Upgrade was successfull.\n";
-		}
-		case '1.2' {
-			print "Nothing to do...\n";
-		}
-		default {
-			print STDERR "ERROR: Unable to determine current database version.\n";
-		}
+
+	# Each step upgrades the database from one version to the next. All
+	# steps are run in a row until the current DBVERSION is reached.
+	# Upgrades from versions older than 1.0 are not supported anymore,
+	# upgrade those with CLog 1.2 first (see the README file).
+	my %steps = (
+		'1.0'  => [ '1.1', sub { } ],
+		'1.1'  => [ '1.2', sub {
+			$dbh->do("ALTER TABLE dxccs MODIFY gmt_offset VARCHAR(6) NOT NULL;");
+		} ],
+	);
+
+	unless (defined($clog_database_version)) {
+		die "ERROR: Unable to determine current database version.\n";
 	}
+	if ($clog_database_version eq DBVERSION) {
+		print "Nothing to do...\n";
+		return;
+	}
+	while ($clog_database_version ne DBVERSION) {
+		unless (exists($steps{$clog_database_version})) {
+			if ($clog_database_version =~ /^0\./) {
+				die "ERROR: Upgrading from database version $clog_database_version is not supported by this version of CLog.\nFirst upgrade to CLog 1.2, then upgrade to this version. See the README file.\n";
+			}
+			die "ERROR: Unable to upgrade from database version $clog_database_version.\n";
+		}
+		my ($next_version, $step) = @{ $steps{$clog_database_version} };
+		print "Upgrading from $clog_database_version to $next_version...\n";
+		eval {
+			$step->();
+			$dbh->do("UPDATE settings SET setting_value=? WHERE setting_name='clog_database_version';", undef, $next_version);
+		};
+		if ($@) {
+			die "$@ERROR: upgrade failed! See the README file for tips on how to solve this.\n";
+		}
+		$clog_database_version = $next_version;
+	}
+	print "Upgrade was successfull, the database is now at version " . DBVERSION . ".\n";
+	return;
 }
 
 # degrees to radians
@@ -1664,11 +1808,37 @@ sub beardist {
 	return (rad2deg($az), $dx);
 }
 
+# Prints bearing and distance from mylocator to the given locator.
+# Note: kept out of the Switch blocks, the Switch source filter misreads
+# strings like "~/.clogrc" there as the start of a regex.
+sub show_locator {
+	my $config_ref = shift;
+	my %config = %{$config_ref};
+	my $locator = shift;
+	if ($config{'mylocator'} eq '') {
+		die "ERROR: You must configure 'mylocator' in your ~/.clogrc file.\n";
+	}
+	unless (valid_locator($locator)) {
+		die "ERROR: invalid locator: $locator\n";
+	}
+	my ($bearing, $distance) = beardist(qratoll($config{'mylocator'}), qratoll($locator));
+	$distance = int($distance);
+	$bearing = int($bearing);
+	print uc($locator) . ": $distance km, $bearing degrees\n";
+	return;
+}
+
 # Converts QRA-locator to longitude/latitude
 sub qratoll {
 	my $qra = uc shift;
 	my ($p1, $p2, $p3, $p4, $p5, $p6) = unpack 'AAAAAA', $qra;
-	($p1, $p2, $p3, $p4, $p5, $p6) = (ord($p1)-ord('A'), ord($p2)-ord('A'), ord($p3)-ord('0'), ord($p4)-ord('0'), ord($p5)-ord('A'), ord($p6)-ord('A') );
+	($p1, $p2, $p3, $p4) = (ord($p1)-ord('A'), ord($p2)-ord('A'), ord($p3)-ord('0'), ord($p4)-ord('0'));
+	if (length($qra) >= 6) {
+		($p5, $p6) = (ord($p5)-ord('A'), ord($p6)-ord('A'));
+	} else {
+		# 4-character locator: use the center of the square
+		($p5, $p6) = (11.5, 11.5);
+	}
 	my $long = ($p1*20) + ($p3*2) + (($p5+0.5)/12) - 180;
 	my $lat = ($p2*10) + $p4 + (($p6+0.5)/24) - 90;
 	return ($lat, $long);
@@ -1690,9 +1860,16 @@ if (@ARGV == 0) {
 if ($config{'mycall'} eq '') {
 	die "ERROR: You must configure 'mycall' in your ~/.clogrc file.\n";
 }
+if (($config{'mylocator'} ne '') && !valid_locator($config{'mylocator'})) {
+	print STDERR "WARNING: invalid 'mylocator' in ~/.clogrc, bearing and distance disabled\n";
+	$config{'mylocator'} = '';
+}
 
 # Connect to the database
-my $dbh = DBI->connect("dbi:mysql:$config{'dbname'};$config{'dbhost'}", $config{'dbuser'}, $config{'dbpass'});
+# RaiseError makes failing queries (e.g. a value that is too long for its
+# column) abort with a message, instead of being silently ignored.
+my $dbh = DBI->connect("dbi:mysql:database=$config{'dbname'};host=$config{'dbhost'}", $config{'dbuser'}, $config{'dbpass'}, { RaiseError => 1, PrintError => 0 })
+	or die "ERROR: unable to connect to the database: $DBI::errstr\n";
 
 # Verify CLog database version
 if ($ARGV[0] ne 'dbupgrade') {
@@ -1700,6 +1877,7 @@ if ($ARGV[0] ne 'dbupgrade') {
 	my $sth = $dbh->prepare($query);
 	$sth->execute();
 	my ($clog_database_version) = $sth->fetchrow_array;
+	$clog_database_version = 'unknown' unless defined($clog_database_version);
 	if ($clog_database_version ne DBVERSION) {
 		die "ERROR: wrong database version: found $clog_database_version, expected version " . DBVERSION . ".\nPlease read the README file for upgrade instructions.\n";
 	}
@@ -1748,11 +1926,7 @@ switch ($ARGV[0]) {
 	}
 	case /^lo.*/ { # locator
 		if (exists ($ARGV[1])) {
-			my $locator = $ARGV[1];
-			my ($bearing, $distance) = beardist(qratoll($config{'mylocator'}), qratoll($locator));
-			$distance = int($distance);
-			$bearing = int($bearing);
-			print uc($locator) . ": $distance km, $bearing degrees\n";
+			show_locator(\%config, $ARGV[1]);
 		} else {
 			syntax();
 		}

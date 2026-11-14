@@ -36,8 +36,10 @@ dbpass = clogpass
 ##
 ## default_rst_rx [] - RS(T) received, e.g. 599
 ## default_rst_tx [] - RS(T) sent
-## default_mode []   - Mode: SSB, LSB, USB, CW, RTTY, (AM)TOR, PKT, AM, FM,
-##                     SSTV, ATV, PAC(TOR), CLO(VER)
+## default_mode []   - Mode: SSB, LSB, USB, AM, FM, CW, RTTY, (AM)TOR, PKT,
+##                     PAC(TOR), CLO(VER), SSTV, ATV, FT8, FT4, JS8, FST4,
+##                     Q65, JT65, JT9, MSK144, WSPR, MFSK, PSK31, PSK63,
+##                     PSK125, OLIVIA, D(-)STAR, C4FM, DMR, FREEDV
 ## default_freq []   - Frequency in MHz, e.g. 14.222
 
 #default_rst_rx = 59
@@ -51,7 +53,9 @@ dbpass = clogpass
 ## statistics_modes [CW,SSB,FM,ALL]
 ##                    - Comma seperated list, allowed modes are:
 ##                      LSB, USB, SSB, CW, RTTY, TOR, PKT, AM, FM, SSTV, ATV,
-##                      PAC and CLO. Additionally, the "mode" ALL can be added,
+##                      PAC, CLO, FT8, FT4, JS8, FST4, Q65, JT65, JT9, MSK144,
+##                      WSPR, MFSK, PSK31, PSK63, PSK125, OLIVIA, DSTAR, C4FM,
+##                      DMR and FREEDV. Additionally, the "mode" ALL can be added,
 ##                      resulting in band totals regardless of the mode.
 ## statistics_bands [160m,80m,40m,20m,15m,10m,2m,70cm]
 ##                    - Comma seperated list, allowed bands are: 160m, 80m,
@@ -75,6 +79,8 @@ dbpass = clogpass
 ##  - rst_tx
 ##  - rst_rx
 ##  - locator
+##  - bearing (requires mylocator)
+##  - distance (requires mylocator)
 ##  - serial_tx
 ##  - serial_rx
 ##  - data_tx
@@ -85,6 +91,8 @@ dbpass = clogpass
 ##
 ## Please note that the 'id' column is always displayed (first column) and
 ## therefore not configurable.
+## Unknown column names are reported with a warning. Callsigns longer than
+## 12 characters are shortened (e.g. ON65SUSKEEN>) in this list only.
 ##
 ## Default:
 ## list_columns = callsign qso_date qso_time band mode rst_tx rst_rx comments
@@ -115,7 +123,7 @@ dbpass = clogpass
 ## 'list_columns' setting. There are 2 extra fields: 'mygrid' and 'grid', these
 ## show the shortened QTH-locator, e.g. the locator JO21XX results in grid JO21.
 ## Clog doesn't support station numbers yet. To use this in a multi-operator contest,
-## use an unused exchange field (e.g. 'clog txs=1 .....'.
+## use an unused exchange field (e.g. 'clog txs=1 .....').
 ##
 ## Default:
 # export_cabrillo_columns = qso_date qso_time freq mode mycall rst_tx data_tx callsign rst_rx data_rx

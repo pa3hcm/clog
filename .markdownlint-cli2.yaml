@@ -1,0 +1,12 @@
+# markdownlint-cli2 settings, used by the Markdown lint workflow
+# (.github/workflows/markdown-lint.yml) and by running
+#   docker run --rm -v "$PWD":/workdir davidanson/markdownlint-cli2:v0.24.1
+# from the clog directory.
+
+# All rules with their default settings (e.g. lines of at most 80 characters).
+config:
+  default: true
+
+# Check all Markdown files in the repository.
+globs:
+  - "**/*.md"

@@ -9,30 +9,88 @@ CLog was originally named Hamlog-CLI, but since lots of ham radio logbooks are
 called 'Hamlog' this name would be too confusing. Therefore I renamed it to
 CLog.
 
-CLog can be downloaded from https://github.com/pa3hcm/clog. Here you can also
+CLog can be downloaded from <https://github.com/pa3hcm/clog>. Here you can also
 raise issues for bugs, feature requests, etc.
 
 To contact the author, send an email to pa3hcm at amsat dot org or visit
-the website https://pa3hcm.nl/.
-
+the website <https://pa3hcm.nl/>.
 
 ## Requirements
 
-Recent versions of these packages are required:
+These are required:
 
-* Perl, including Switch, DBI and DBD::MySQL
-* MySQL server and client
+* Perl 5.26 or newer, with the modules Switch, DBI and DBD::mysql (listed in
+  the `cpanfile`)
+* MySQL or MariaDB server and client
 
-CLog is developed and tested on Ubuntu 22.04, with the included `perl`,
-`libswitch-perl`, `libdbi-perl`, `libdbd-mysql-perl`, `mysql-server` and
-`mysql-client` packages installed. However, it should run on most UNIX/linux
-platforms. In some occasions you may have to change the perl path on the first
-line of the `clog` file.
+CLog is tested with all Perl versions from 5.26 up to the latest release, and
+on the currently supported releases of Ubuntu (LTS), Debian, RHEL, AlmaLinux,
+Rocky Linux, SLES and openSUSE Leap (see `.github/workflows/tests.yml`). Linux
+Mint uses the packages of Ubuntu (Mint) or Debian (LMDE). It should run on most
+UNIX/linux platforms. In some occasions you may have to change the perl path on
+the first line of the `bin/clog` file.
 
+### Installing the Perl modules
+
+The easiest way is to use the packages of your distribution.
+
+On Ubuntu, Debian and Linux Mint:
+
+``` sh
+sudo apt install libswitch-perl libdbi-perl libdbd-mysql-perl
+```
+
+On RHEL, AlmaLinux and Rocky Linux 9 (perl-Switch is in the CRB repository;
+on version 8 this repository is called powertools):
+
+``` sh
+sudo dnf config-manager --set-enabled crb
+sudo dnf install perl-Switch perl-DBI perl-DBD-MySQL
+```
+
+On RHEL, AlmaLinux and Rocky Linux 10, perl-Switch is only available from
+[EPEL](https://docs.fedoraproject.org/en-US/epel/):
+
+``` sh
+sudo dnf config-manager --set-enabled crb
+sudo dnf install epel-release
+sudo dnf install perl-Switch perl-DBI perl-DBD-MySQL
+```
+
+On SLES and openSUSE Leap:
+
+``` sh
+sudo zypper install perl-Switch perl-DBI perl-DBD-mysql
+```
+
+**Alternative: install from CPAN with the cpanfile.** If your distribution
+doesn't provide these packages, or you prefer CPAN, install the modules listed
+in the `cpanfile` with [cpanminus](https://metacpan.org/pod/App::cpanminus),
+from the clog directory (see Installation below):
+
+``` sh
+sudo cpanm --installdeps .
+```
+
+This builds DBD::mysql, which requires a C compiler and the MySQL or MariaDB
+client development files (e.g. `libmysqlclient-dev`, or `libmariadb-dev` and
+`libmariadb-dev-compat` on Ubuntu/Debian; `mysql-devel` or
+`mariadb-connector-c-devel` on RHEL and its clones). DBD::mysql 5.x and newer
+only build with the MySQL 8.x client library. With the MariaDB client library,
+first install the last 4.x version, then the other modules:
+
+``` sh
+sudo cpanm DBD::mysql@4.052
+sudo cpanm --installdeps .
+```
+
+Install the modules system-wide as shown: clog runs in taint mode (`perl -T`),
+which ignores `PERL5LIB`, so modules installed in your home directory
+(local::lib) or with Carton are not found.
 
 ## Installation
 
-Download CLog from https://github.com/pa3hcm/clog and extract the file, or use
+Download CLog from <https://github.com/pa3hcm/clog> and extract the file, or use
 git to download the latest development version:
 
 ``` sh
@@ -46,19 +104,30 @@ Go into the clog directory:
 cd clog
 ```
 
-Copy files to the desired directories:
+Install clog and its man page in /usr/local:
 
 ``` sh
-cp clog /usr/local/bin
-chmod 755 /usr/local/bin/clog
-cp clog.1.gz /usr/local/share/man/man1
-cp example.clogrc ~/.clogrc
+sudo make install
+```
+
+To install somewhere else, set PREFIX, e.g. `make install PREFIX=~/.local`.
+Without make, copy the files yourself:
+
+``` sh
+sudo install -m 755 bin/clog /usr/local/bin/clog
+gzip -9n -c man/clog.1 | sudo tee /usr/local/share/man/man1/clog.1.gz > /dev/null
+```
+
+Copy the example configuration file to your home directory:
+
+``` sh
+cp examples/clogrc ~/.clogrc
 ```
 
 Run the following command to create the 'clog' database:
 
 ``` sh
-mysql -u root -p < clog.sql
+mysql -u root -p < sql/clog.sql
 ```
 
 Review the configuration file ~/.clogrc. At least set the 'mycall' and
@@ -71,23 +140,19 @@ vi ~/.clogrc
 Import the latest cty.dat:
 
 ``` sh
-wget http://www.country-files.com/cty/old/cty.dat
+wget https://www.country-files.com/cty/cty.dat
 clog import_cty cty.dat
 ```
 
 Consider creating a crontab entry for this, e.g.:
 
-```
-6 6 * * 1 wget http://www.country-files.com/cty/cty.dat ; \
+``` text
+6 6 * * 1 wget https://www.country-files.com/cty/cty.dat ; \
             clog import_cty cty.dat ; \
             rm cty.dat
 ```
 
-
 ## Upgrading
-
-A direct upgrade from CLog 0.4b or older is not possible. Upgrade to CLog 0.5b
-first, then upgrade to 1.0.
 
 Upgrading is like installing, except that you mustn't create the 'clog'
 database. Instead, run the database upgrade:
@@ -96,12 +161,18 @@ database. Instead, run the database upgrade:
 clog dbupgrade
 ```
 
-Since we changed the way of upgrading the database in version 0.6b, some users
-may see this error when running the 'clog dbupgrade' command:
+This upgrades databases created by CLog 1.0 or newer in one go.
 
-```
-DBD::mysql::db do failed: ALTER command denied to user 'apache'@'localhost'
-for table 'qsos' at ./clog line 822, <CONFIG> line 13.
+**Upgrading from a version older than 1.0:** the current version of CLog can
+not upgrade these databases. First upgrade to CLog 1.2 (git tag `1.2.1`), and
+run `clog dbupgrade` with that version until it reports that there is nothing
+to do. Then upgrade to the current version as described above.
+
+When running 'clog dbupgrade', you may see an error like this:
+
+``` text
+DBD::mysql::db do failed: ALTER command denied to user 'cloguser'@'localhost'
+for table 'dxccs'
 ```
 
 The problem is that the given user is not allowed to modify the database
@@ -121,7 +192,6 @@ Now run the upgrade again:
 clog dbupgrade
 ```
 
-
 ## Security
 
 When creating the database, a user 'cloguser' is created with the password
@@ -134,19 +204,18 @@ Password: ******
 mysql> SET PASSWORD FOR 'cloguser'@'localhost' = PASSWORD('new_password');
 ```
 
-Now edit/create the .clogrc file in your home directory (see example.clogrc)
+Now edit/create the .clogrc file in your home directory (see examples/clogrc)
 and modify the value for dbpass:
 
-```
+``` text
     dbpass = new_password
 ```
-
 
 ## WordPress plugin
 
 From version 0.11b a simple WordPress plugin is included with CLog. This
 plugin allows you to publish your logbook on a WordPress enabled website.
-The plugin is a single PHP-script and is named wp-clog.php.
+The plugin is a single PHP-script: wordpress/wp-clog.php.
 
 Follow these steps to install the plugin:
 
@@ -162,18 +231,19 @@ Go to the directory 'wp-content/plugins'.
 cd wp-content/plugins
 ```
 
-Create a directory called 'wp-clog':
+Create a directory called 'wp-clog' (use this name, the plugin's 'Settings'
+link expects it), and copy the plugin into it, e.g. from your clog directory:
 
 ``` sh
 mkdir wp-clog
+cp ~/clog/wordpress/wp-clog.php wp-clog/
 ```
-
-Put the wp-clog.php file in this directory.
 
 Verify rights are correctly set, e.g.:
 
 ``` sh
-chmod 0755 . wp-clog.php
+chmod 0755 wp-clog
+chmod 0644 wp-clog/wp-clog.php
 ```
 
 Go to your WordPress dashboard using your favourite webbrowser.
@@ -186,16 +256,70 @@ Click 'Settings', customize the given options and click 'Save Changes'.
 
 To list your QSO's on a page or blog post, include this in your content:
 
-```
+``` text
 [wpclog-list]
 ```
 
 This will include a table with the 25 latest QSO's. If you want to change
 this number, use the 'limit' parameter, e.g.:
 
-```
+``` text
 [wpclog-list limit=100]
 ```
+
+## Repository layout
+
+* `bin/clog` - the program
+* `man/clog.1` - the clog(1) man page (compressed during installation)
+* `sql/clog.sql` - SQL script to create the database
+* `examples/clogrc` - example configuration file, copy it to ~/.clogrc
+* `wordpress/wp-clog.php` - the WordPress plugin
+* `t/` - tests, run them with `make test`
+* `cpanfile` - the required Perl modules
+* `Makefile` - `make install`, `make uninstall` and `make test`
+* `.github/workflows/` - automated tests and linters on GitHub (see Testing)
+* `.perlcriticrc`, `.markdownlint-cli2.yaml` - settings of the linters
+
+## Testing
+
+Run the tests from the clog directory:
+
+``` sh
+make test
+```
+
+The tests don't need a database or configuration file. CLog uses the Switch
+module, a source filter that behaves differently between Perl versions. When
+changing the code, run the tests with both an old Perl (e.g. 5.26 on AlmaLinux
+8) and a new one.
+
+GitHub Actions runs these workflows on every pull request and on every push to
+the main branch:
+
+* **Tests** (`tests.yml`) - `make test` with:
+  * every Perl version from 5.26 to the latest release: the versions supported
+    by the Perl community and the versions of the supported distributions
+  * the supported releases of Ubuntu (LTS), Debian, AlmaLinux, Rocky Linux,
+    openSUSE Leap and SLES, with the Perl modules installed from their
+    packages as described above
+  * the modules installed from CPAN with the `cpanfile`, with both the MySQL
+    and the MariaDB client library
+* **Perl lint** (`perl-lint.yml`) - a compile check and
+  [Perl::Critic](https://metacpan.org/pod/Perl::Critic) at severity 4, with
+  the settings in `.perlcriticrc`
+* **Markdown lint** (`markdown-lint.yml`) -
+  [markdownlint](https://github.com/DavidAnson/markdownlint-cli2) on all `.md`
+  files, with the settings in `.markdownlint-cli2.yaml`
+
+To run the linters yourself, from the clog directory:
+
+``` sh
+perlcritic bin/clog t/
+docker run --rm -v "$PWD":/workdir davidanson/markdownlint-cli2:v0.24.1
+```
+
+Perl::Critic is packaged as `libperl-critic-perl` (Ubuntu, Debian) or
+`perl-Perl-Critic` (RHEL and clones, with EPEL).
 
 ## Credits
 
@@ -203,7 +327,6 @@ CLog is written by Ernest Neijenhuis PA3HCM.
 
 Special thanks to Adrian van Bloois PA0RDA for testing CLog, and providing lots
 of ideas on functionality and usability.
-
 
 ## License
 

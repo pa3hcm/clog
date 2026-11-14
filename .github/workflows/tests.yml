@@ -1,0 +1,138 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # Perl versions supported by the Perl community (5.40, 5.42, 5.44) and the
+  # Perl versions of the currently supported (LTS) distributions:
+  #   5.26  RHEL/AlmaLinux/Rocky Linux 8, SLES 15 SP7
+  #   5.32  RHEL/AlmaLinux/Rocky Linux 9
+  #   5.34  Ubuntu 22.04, Linux Mint 21
+  #   5.36  Debian 12
+  #   5.38  Ubuntu 24.04, Linux Mint 22
+  #   5.40  Ubuntu 26.04, Debian 13, LMDE 7, RHEL/AlmaLinux/Rocky Linux 10
+  #   5.42  openSUSE Leap 16.0, SLES 16.0
+  # The Switch source filter behaves differently between Perl versions, so
+  # all of them are tested.
+  perl-versions:
+    name: Perl ${{ matrix.perl }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        perl: ['5.26', '5.32', '5.34', '5.36', '5.38', '5.40', '5.42', '5.44']
+    steps:
+      - uses: actions/checkout@v7
+      - uses: shogo82148/actions-setup-perl@v1
+        with:
+          perl-version: ${{ matrix.perl }}
+      # DBD::mysql is not needed by the tests (they don't use a database)
+      - name: Install Perl modules
+        run: cpanm --notest Switch DBI
+      - name: Run tests
+        run: make test
+
+  # The supported (LTS) distributions, with the Perl modules installed from
+  # their packages as described in the README. Linux Mint uses the packages of
+  # Ubuntu (Mint 21/22) and Debian (LMDE 7). RHEL itself is covered by
+  # AlmaLinux and Rocky Linux, which are built from the same packages.
+  distributions:
+    name: ${{ matrix.image }}
+    runs-on: ubuntu-latest
+    container: ${{ matrix.image }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: ubuntu:22.04
+            install: &apt |
+              apt-get update
+              apt-get install -y make libswitch-perl libdbi-perl libdbd-mysql-perl
+          - image: ubuntu:24.04
+            install: *apt
+          - image: ubuntu:26.04
+            install: *apt
+          - image: debian:12
+            install: *apt
+          - image: debian:13
+            install: *apt
+          - image: almalinux:8
+            install: &el8 |
+              dnf install -y dnf-plugins-core
+              dnf config-manager --set-enabled powertools
+              dnf install -y make perl perl-Switch perl-DBI perl-DBD-MySQL
+          - image: rockylinux/rockylinux:8
+            install: *el8
+          - image: almalinux:9
+            install: &el9 |
+              dnf install -y dnf-plugins-core
+              dnf config-manager --set-enabled crb
+              dnf install -y make perl perl-Switch perl-DBI perl-DBD-MySQL
+          - image: rockylinux/rockylinux:9
+            install: *el9
+          - image: almalinux:10
+            install: &el10 |
+              dnf install -y dnf-plugins-core
+              dnf config-manager --set-enabled crb
+              dnf install -y epel-release
+              dnf install -y make perl perl-Switch perl-DBI perl-DBD-MySQL
+          - image: rockylinux/rockylinux:10
+            install: *el10
+          - image: opensuse/leap:16.0
+            install: &suse |
+              zypper --non-interactive install tar gzip make perl perl-Switch perl-DBI perl-DBD-mysql
+          - image: registry.suse.com/bci/bci-base:15.7
+            install: *suse
+          - image: registry.suse.com/bci/bci-base:16.0
+            install: *suse
+    steps:
+      # Before the checkout: actions/checkout needs tar and gzip
+      - name: Install packages
+        run: ${{ matrix.install }}
+      - uses: actions/checkout@v7
+      - name: Show versions
+        run: |
+          perl -v | sed -n 2p
+          perl -MSwitch -MDBI -MDBD::mysql -e 'print "Switch $Switch::VERSION, DBI $DBI::VERSION, DBD::mysql $DBD::mysql::VERSION\n"'
+      - name: Run tests
+        run: make test
+
+  # Install all modules of the cpanfile from CPAN, as described in the README.
+  # With the MariaDB client library, DBD::mysql 4.052 must be installed first
+  # (DBD::mysql 5.x only builds with the MySQL 8.x client library).
+  cpanfile:
+    name: cpanfile (${{ matrix.client }} client library)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - client: MySQL
+            packages: libmysqlclient-dev
+            first: ''
+          - client: MariaDB
+            packages: libmariadb-dev libmariadb-dev-compat
+            first: DBD::mysql@4.052
+    steps:
+      - uses: actions/checkout@v7
+      - uses: shogo82148/actions-setup-perl@v1
+        with:
+          perl-version: '5.44'
+      - name: Install client development files
+        run: sudo apt-get update && sudo apt-get install -y ${{ matrix.packages }}
+      - name: Install DBD::mysql 4.x first
+        if: matrix.first != ''
+        run: cpanm --notest ${{ matrix.first }}
+      - name: Install Perl modules from the cpanfile
+        run: cpanm --notest --installdeps .
+      - name: Check that DBD::mysql loads
+        run: perl -MDBD::mysql -e 'print "DBD::mysql $DBD::mysql::VERSION\n"'
+      - name: Run tests
+        run: make test

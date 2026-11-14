@@ -1,3 +1,34 @@
+1.3.0 (released November 14, 2026)
+- Added GitHub Actions workflows: tests with every Perl version from 5.26 to 5.44 and on the supported releases of Ubuntu, Debian, AlmaLinux, Rocky Linux, openSUSE Leap and SLES, a test of the cpanfile, Perl::Critic (severity 4) and markdownlint. Fixed the Perl::Critic findings (lexical file handles and loop variables, use warnings, explicit returns) and the markdownlint findings in the README.
+- The minimum Perl version is now 5.26, the oldest Perl of a supported distribution (RHEL 8 and clones, SLES 15). The README now also covers RHEL 10 and clones (perl-Switch from EPEL) and SLES/openSUSE, and explains how to install DBD::mysql from CPAN with the MariaDB client library.
+- Reorganized the repository: bin/clog, man/clog.1 (no longer stored compressed), sql/clog.sql, examples/clogrc (was example.clogrc) and wordpress/wp-clog.php. Added a Makefile (make install, make uninstall, make test) and tests in t/ that don't need a database. Updated the installation instructions.
+- Added modes: FT8, FT4, JS8, FST4, Q65, JT65, JT9, MSK144, WSPR, MFSK, PSK31, PSK63, PSK125, OLIVIA, DSTAR, C4FM, DMR and FREEDV (aliases: D-STAR, BPSK31). SSTV, although documented, was not recognized before; it is now.
+- ADIF export is now ADIF 3.1.4: modes like FT4/JS8/PSK31 and LSB/USB are exported as MODE + SUBMODE, contest exchanges go to STX_STRING/SRX_STRING, empty fields are left out.
+- Cabrillo export: modes are taken from the mode table (digital modes as DG, digital voice as PH), added 30m, 17m, 12m and 1.25m, 2.5mm/2mm are now 122G/134G (Cabrillo 3).
+- The mode column in 'list' and 'statistics' is now 6 characters wide.
+- Added a cpanfile listing the required Perl modules, and documented installing them from CPAN (sudo cpanm --installdeps .) as an alternative to the distribution packages; the README now also lists the AlmaLinux packages.
+- Updated the clog(1) man page: list_columns/columns and truncation in 'list', the dbupgrade command, dB reports, special event callsigns, new examples, fixed typos and outdated links.
+- 'list': callsigns longer than the 12 character callsign column are shortened to 11 characters plus '>' (e.g. ON65SUSKEEN>), so the columns stay aligned. The full callsign is still stored and shown everywhere else.
+- 'list': the 'mycall' column (documented in examples/clogrc) was missing and is now supported, the DXCC column is 5 characters wide so codes like 4U1I and HK0/a no longer shift the following columns, unknown names in list_columns are reported with a warning, and column names may be separated by any whitespace.
+- 'list' output now really fits in 'columns' (default 80) terminal columns: lines are cut by display width instead of bytes, so UTF-8 characters are never split and wide (e.g. CJK) characters count as 2 columns; tabs and other control characters in comments are replaced by a space; trailing spaces are removed. When text is cut off, the last displayed character is replaced by '>'.
+- Single-digit frequencies (e.g. 1m, 3m, 7m) are now recognized.
+- Special event callsigns with 3 or 4 digits (e.g. PA100MGY, DQ2006X, 9A287R) are now recognized without call=.
+- 'add': an argument for a field that is already set (e.g. a locator like JN62PI in the comments, which looks like a callsign) now starts the comments instead of being silently dropped.
+- Fixed: clog did not compile on Perl 5.40 (with Switch 2.17), the source filter choked on the callsign regex '\/{0,1}'. The regex is now written in a form that works with the Switch filter on both old (5.26, AlmaLinux 8) and new (5.40) Perl versions.
+- import_cty: fields of a country line are now split on ':' and trimmed; the old fixed-width parsing kept leading spaces, so the continent did not fit its column (rejected in strict mode), DXCC codes were stored with leading spaces and '*' (WAE-only) entities were never detected. CRLF files are supported.
+- statistics: DXCC summary showed 0 instead of '-' for bands without QSO's.
+- show: a serial number that was not logged is now shown as '-' instead of 0, like an empty contest exchange.
+- Fixed default_freq: it was assigned to the mode field, so the default frequency never worked.
+- Database errors are now reported (DBI RaiseError) instead of silently ignored, and a failing connection gives a clear error.
+- import_cty: fixed german_dxcc values ('Y'/'N' instead of 1/0, rejected by MySQL strict mode), strip <lat/long>, {continent} and ~UTC offset~ overrides from newer cty.dat files, run the import in one transaction.
+- dbupgrade: runs all steps at once. Upgrades from versions older than 1.0 are no longer supported: first upgrade to CLog 1.2, then to this version (see README).
+- Fixed bearing/distance for 4-character locators; 8-character locators are truncated to 6 (the size of the database column); 'clog locator' validates its input.
+- Mode aliases (AMTOR, PACTOR, CLOVER) are now also applied by 'clog update'.
+- export_csv escapes double quotes, export_html escapes HTML special characters and rounds bearing/distance.
+- Faster 'statistics' and the 'dxcc' column (about 1.5-2x on a 2800 QSO log): DXCC lookups use one query and are cached. Band lookup uses a simple range table.
+- WP-CLog: escape all output (XSS), handle database connection errors, password field, proper option sanitizing, validate 'limit'.
+- Small fixes: config file handle was never closed, help text for 'statistics' and 'dbupgrade', typo in Cabrillo v3 header (ADDRESS-STATE-PROVINCE), longer comments in 'list' when 'columns' allows it.
+
 1.2.1 (release January 9, 2024)
 - Dropped RPM support, since  there is no reason to support RPM while not supporting other package types.
 
