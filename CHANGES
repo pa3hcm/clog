@@ -13,6 +13,7 @@
 - Fixed: clog did not compile with Switch 2.17 (Perl 5.40), the source filter choked on the callsign regex '\/{0,1}'.
 - import_cty: fields of a country line are now split on ':' and trimmed; the old fixed-width parsing kept leading spaces, so the continent did not fit its column (rejected in strict mode), DXCC codes were stored with leading spaces and '*' (WAE-only) entities were never detected. CRLF files are supported.
 - statistics: DXCC summary showed 0 instead of '-' for bands without QSO's.
+- show: a serial number that was not logged is now shown as '-' instead of 0, like an empty contest exchange.
 - Fixed default_freq: it was assigned to the mode field, so the default frequency never worked.
 - Database errors are now reported (DBI RaiseError) instead of silently ignored, and a failing connection gives a clear error.
 - import_cty: fixed german_dxcc values ('Y'/'N' instead of 1/0, rejected by MySQL strict mode), strip <lat/long>, {continent} and ~UTC offset~ overrides from newer cty.dat files, run the import in one transaction.
