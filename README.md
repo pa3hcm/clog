@@ -26,8 +26,8 @@ These are required:
 
 CLog is tested on Ubuntu 26.04 (Perl 5.40), AlmaLinux 8 (Perl 5.26) and
 AlmaLinux 9 (Perl 5.32). It should run on most UNIX/linux platforms. In some
-occasions you may have to change the perl path on the first line of the `clog`
-file.
+occasions you may have to change the perl path on the first line of the
+`bin/clog` file.
 
 ### Installing the Perl modules
 
@@ -82,19 +82,30 @@ Go into the clog directory:
 cd clog
 ```
 
-Copy files to the desired directories:
+Install clog and its man page in /usr/local:
 
 ``` sh
-cp clog /usr/local/bin
-chmod 755 /usr/local/bin/clog
-cp clog.1.gz /usr/local/share/man/man1
-cp example.clogrc ~/.clogrc
+sudo make install
+```
+
+To install somewhere else, set PREFIX, e.g. `make install PREFIX=~/.local`.
+Without make, copy the files yourself:
+
+``` sh
+sudo install -m 755 bin/clog /usr/local/bin/clog
+gzip -9n -c man/clog.1 | sudo tee /usr/local/share/man/man1/clog.1.gz > /dev/null
+```
+
+Copy the example configuration file to your home directory:
+
+``` sh
+cp examples/clogrc ~/.clogrc
 ```
 
 Run the following command to create the 'clog' database:
 
 ``` sh
-mysql -u root -p < clog.sql
+mysql -u root -p < sql/clog.sql
 ```
 
 Review the configuration file ~/.clogrc. At least set the 'mycall' and
@@ -107,14 +118,14 @@ vi ~/.clogrc
 Import the latest cty.dat:
 
 ``` sh
-wget http://www.country-files.com/cty/old/cty.dat
+wget https://www.country-files.com/cty/cty.dat
 clog import_cty cty.dat
 ```
 
 Consider creating a crontab entry for this, e.g.:
 
 ```
-6 6 * * 1 wget http://www.country-files.com/cty/cty.dat ; \
+6 6 * * 1 wget https://www.country-files.com/cty/cty.dat ; \
             clog import_cty cty.dat ; \
             rm cty.dat
 ```
@@ -173,7 +184,7 @@ Password: ******
 mysql> SET PASSWORD FOR 'cloguser'@'localhost' = PASSWORD('new_password');
 ```
 
-Now edit/create the .clogrc file in your home directory (see example.clogrc)
+Now edit/create the .clogrc file in your home directory (see examples/clogrc)
 and modify the value for dbpass:
 
 ```
@@ -185,7 +196,7 @@ and modify the value for dbpass:
 
 From version 0.11b a simple WordPress plugin is included with CLog. This
 plugin allows you to publish your logbook on a WordPress enabled website.
-The plugin is a single PHP-script and is named wp-clog.php.
+The plugin is a single PHP-script: wordpress/wp-clog.php.
 
 Follow these steps to install the plugin:
 
@@ -201,18 +212,19 @@ Go to the directory 'wp-content/plugins'.
 cd wp-content/plugins
 ```
 
-Create a directory called 'wp-clog':
+Create a directory called 'wp-clog' (use this name, the plugin's 'Settings'
+link expects it), and copy the plugin into it, e.g. from your clog directory:
 
 ``` sh
 mkdir wp-clog
+cp ~/clog/wordpress/wp-clog.php wp-clog/
 ```
-
-Put the wp-clog.php file in this directory.
 
 Verify rights are correctly set, e.g.:
 
 ``` sh
-chmod 0755 . wp-clog.php
+chmod 0755 wp-clog
+chmod 0644 wp-clog/wp-clog.php
 ```
 
 Go to your WordPress dashboard using your favourite webbrowser.
@@ -235,6 +247,32 @@ this number, use the 'limit' parameter, e.g.:
 ```
 [wpclog-list limit=100]
 ```
+
+## Repository layout
+
+* `bin/clog` - the program
+* `man/clog.1` - the clog(1) man page (compressed during installation)
+* `sql/clog.sql` - SQL script to create the database
+* `examples/clogrc` - example configuration file, copy it to ~/.clogrc
+* `wordpress/wp-clog.php` - the WordPress plugin
+* `t/` - tests, run them with `make test`
+* `cpanfile` - the required Perl modules
+* `Makefile` - `make install`, `make uninstall` and `make test`
+
+
+## Testing
+
+Run the tests from the clog directory:
+
+``` sh
+make test
+```
+
+The tests don't need a database or configuration file. CLog uses the Switch
+module, a source filter that behaves differently between Perl versions. When
+changing the code, run the tests with both an old Perl (e.g. 5.26 on AlmaLinux
+8) and a new one.
+
 
 ## Credits
 

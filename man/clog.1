@@ -1,0 +1,199 @@
+.TH CLOG 1 "November 2026" "CLog 1.3.0" "CLog Manual" \" -*- nroff -*-
+.SH NAME
+clog \- Command-line logbook for amateur radio
+.SH SYNOPSIS
+.B clog
+command [arguments]
+.SH DESCRIPTION
+\fBclog\fP is a command-line logbook for amateur radio.
+.LP
+If \fBclog\fP is invoked without any arguments it displays a short help text. This text is also displayed when there is an error in the syntax. Normally \fBclog\fP is invoked with a command, often followed by one or more arguments (depending on the given command).
+.LP
+\fBclog\fP requires a configuration file, which is normally ~/.clogrc. You can change this by setting the CLOGRC environment variable to the desired configuration file (a name without a path is looked up in your home directory), e.g.:
+.LP
+"$ export CLOGRC=/home/pa3hcm/.clogrc.cqww"\fR
+.sp
+.SH COMMANDS
+\fBclog\fR supports the commands described in the following list. Some of the commands take one or more arguments following the command name. Some commands require an \fBid\fR: every logged QSO gets a unique id which is used for reference.
+.TP 3n
+\(bu
+\fBad[d]\fR \fIfield field ...\fR
+.sp
+Add a QSO to the logbook. See \fBFIELDS\fR for more information about the arguments.
+.TP 3n
+\(bu
+\fBup[date]\fR \fIid field field ...\fR
+.sp
+Update an already added QSO. See \fBFIELDS\fR for more information about the arguments.
+.TP 3n
+\(bu
+\fBde[lete]\fR \fIid\fR
+.sp
+Permanently delete a QSO from the logbook
+.TP 3n
+\(bu
+\fBli[st]\fR [\fIid\fR]
+.sp
+List all logged QSO's. When \fIid\fR is given, only the given QSO is listed. The commands \fBadd\fR, \fBupdate\fR, \fBdelete\fR and \fBqsl\fR automatically show the affected QSO the same way. The \fBlist\fR command can be very powerful when combined with tools like grep, sed, awk, etc.
+.sp
+The columns are set with \fBlist_columns\fR in your .clogrc file (see the examples/clogrc file included with CLog); the id is always the first column. Unknown column names are reported with a warning. The output never exceeds \fBcolumns\fR terminal columns (default 80); characters like accented letters count as one column, wide (e.g. Japanese) characters as two, and tabs in comments are shown as a space. When text is cut off, the last displayed character is replaced by '>'. Callsigns longer than 12 characters are shortened to 11 characters plus '>', e.g. \fBON65SUSKEEN>\fR; this only affects the display, the full callsign is stored and used everywhere else.
+.TP 3n
+\(bu
+\fBlo[cator]\fR \fIlocator\fR
+.sp
+Shows bearing and distance for the given locator. This command only works when \fBmylocator\fR is set in your .clogrc file.
+.TP 3n
+\(bu
+\fBsh[ow]\fR \fIid\fR
+.sp
+Show all information regarding the given QSO.
+.TP 3n
+\(bu
+\fBqs[l]\fR tx|rx \fIid\fR
+.sp
+QSL administration for the given \fBid\fR. Use \fBtx\fR to indicate you have sent a QSL, or use \fBrx\fR for a received QSL.
+.TP 3n
+\(bu
+\fBst[atistics]\fR
+.sp
+Display some statistics, including the total amount of QSO's logged, QSO's per mode and band, and DXCC statistics. The modes and bands are set with \fBstatistics_modes\fR and \fBstatistics_bands\fR in your .clogrc file.
+.TP 3n
+\(bu
+\fBexport_adif\fR
+.sp
+Dump the complete logbook in ADIF v3 (3.1.4) format to STDOUT. Modes like FT4, JS8 and PSK31 are exported as a MODE with a SUBMODE, as required by ADIF 3. Much other amateur radio software supports the ADIF format to exchange logbook data. Currently \fBclog\fR is only able to export ADIF, not import. See http://www.adif.org/ for more information on this format.
+.TP 3n
+\(bu
+\fBexport_cab2, export_cab3\fR
+.sp
+Dump the complete logbook in Cabrillo 2.0 or 3.0 format to STDOUT. The Cabrillo format is commonly used to submit contest logs. Redirect the output to a text file. Then use a text editor to complete the file headers. The QSO fields are set with \fBexport_cabrillo_columns\fR in your .clogrc file. Digital modes are exported as DG, digital voice modes as PH. More information on Cabrillo can be found on https://wwrof.org/cabrillo/.
+.TP 3n
+\(bu
+\fBexport_csv\fR
+.sp
+Dump the complete logbook in CSV format to STDOUT. You can use this to transport your logbook to a spreadsheet or database. Fields are separated by comma's, and delimited by quotation marks; quotation marks inside a field are doubled.
+.TP 3n
+\(bu
+\fBexport_html\fR
+.sp
+Dump the complete logbook in an HTML formatted table. You can use this to publish your logbook online by including this table in a HTML-file (e.g. using PHP) or by copying the output into a page in your content management system. Special HTML characters (like < and &) are escaped. The columns are set with \fBexport_html_columns\fR in your .clogrc file.
+.TP 3n
+\(bu
+\fBimport_cty\fR \fIfile\fR
+.sp
+Import a cty.dat file into the clog database. \fBclog\fR uses this information to determine what country the given callsign belongs to. Previously imported data is replaced. See https://www.country-files.com/ to download the latest version of cty.dat.
+.TP 3n
+\(bu
+\fBdx[cc]\fR \fIcall|prefix\fR
+.sp
+Search the imported cty.dat for the given callsign or prefix. This is just a way to easily search the cty.dat file. It does not affect your logbook. Example: \fBclog dxcc ea8\fR
+.TP 3n
+\(bu
+\fBdbupgrade\fR
+.sp
+Upgrade the database to the version required by this version of \fBclog\fR. All upgrade steps are done in one go. Other commands refuse to run when the database version does not match. The database user needs permission to modify tables, see the README file. Databases created by CLog 1.0 or newer can be upgraded. To upgrade from a version older than 1.0, first upgrade to CLog 1.2, then upgrade to this version.
+.SH FIELDS
+The commands \fBadd\fR and \fBupdate\fR require one or more \fBfields\fR. These fields are recognized by \fBclog\fR and represent details of QSO record in the logbook. Down here you will find the field types that are currently recognized by \fBclog\fR. Note that all fields can be given in any order, except the comments field, which must be at the end of the command-line.
+.TP 3n
+\(bu
+\fBCallsign\fR
+.sp
+Most callsigns are recognized automatically, including special event callsigns with up to 4 digits (like PA100MGY or DQ2006X). They may include prefixes (like EA/...) and suffixes (like /p). Callsigns are case insensitive, but \fBclog\fR will store them in uppercase. When a callsign is NOT recognized (e.g. EF6, or a callsign that looks like a mode such as C4FM), you can prepend 'call=' to the callsign, e.g. 'call=EF6'.\fR
+.TP 3n
+\(bu
+\fBFrequency\fR
+.sp
+A frequency is a number given in kHz or MHz. Always end the number with a 'K' or 'k' (kHz), or 'M' or 'm' (MHz). A dot is allowed to enter decimals. Examples: \fB14.345M\fR, \fB3630k\fR, \fB7m\fR
+.TP 3n
+\(bu
+\fBMode\fR
+.sp
+The following modes are recognized: SSB, LSB, USB, AM, FM, CW, RTTY, (AM)TOR, PKT, PAC(TOR), CLO(VER), SSTV, ATV, FT8, FT4, JS8, FST4, Q65, JT65, JT9, MSK144, WSPR, MFSK, PSK31 (or BPSK31), PSK63, PSK125, OLIVIA, DSTAR (or D-STAR), C4FM, DMR and FREEDV. Modes are case insensitive. Modes are recognized before callsigns, so to log a callsign that looks like a mode (e.g. C4FM) use \fBcall=\fR.
+.TP 3n
+\(bu
+\fBRS(T) sent\fR
+.sp
+The report sent always starts with a 'T' or 't' (transmitted), followed by at least 2 numbers, or by a signal report in dB (as used by FT8 and similar modes). At most 5 characters are stored. Examples: \fBT59\fR, \fBt59a\fR, \fBt59+20\fR, \fBt-10\fR, \fBt+05\fR
+.TP 3n
+\(bu
+\fBRS(T) received\fR
+.sp
+Like RST sent, but this one starts with a 'R' or 'r' (received).
+.TP 3n
+\(bu
+\fBLocator\fR
+.sp
+Format: LOC=CCnn, LOC=CCnnCC, LOC=CCnnCCnn. This will log the QTH-locator. It is case insensitive, CLog will convert it to uppercase. 8 character locators are stored as 6 characters (with a warning). Example: loc=jo21ox
+.TP 3n
+\(bu
+\fBSerial sent\fR
+.sp
+Format: TXS=nnn, where nnn is the sent serial number (in contests). TXS is case insensitive.
+.TP 3n
+\(bu
+\fBSerial received\fR
+.sp
+Like \fBSerial sent\fR, but now for the received serial number. RXS is case insensitive.
+.TP 3n
+\(bu
+\fBData sent\fR
+.sp
+Format: TXD=ccc, where ccc is a string. Useful for contests where non-serials are exchanged (too). TXD is case insensitive, the given string will be stored as-is.
+.TP 3n
+\(bu
+\fBData received\fR
+.sp
+Format: RXD=ccc. Like \fBData sent\fR, but now for the received string. RXD is case insensitive, the given string will be stored as-is.
+.TP 3n
+\(bu
+\fBDate\fR
+.sp
+The date of a QSO, in GMT. With the \fBadd\fR command, the date is filled in automatically when not given. Always use the following format: yyyy-mm-dd.
+.TP 3n
+\(bu
+\fBTime\fR
+.sp
+The time of a QSO, in GMT, formatted HH:MM. Like \fBdate\fR, the \fBtime\fR field is optional when using the \fBadd\fR command. When not stated, the current time is logged automatically.
+.TP 3n
+\(bu
+\fBComments\fR
+.sp
+When a field is not recognized, the remaining part of the command-line is supposed to be comments. The same applies to a field that was already given: e.g. a locator like JN62PI after the callsign looks like a second callsign, so it starts the comments.
+.SH EXAMPLES
+.TP 3n
+\(bu
+$ \fBclog add 3560k cw pa3hcm t599 r579 Ernest, Everdingen\fR
+.sp
+Add a CW QSO on the 80m band to the logbook. Since 'Ernest,' is the first argument not recognized, the comment field will be \fBErnest, Everdingen\fR.
+.TP 3n
+\(bu
+$ \fBclog add dl1abc 14.074m ft8 t-10 r+05\fR
+.sp
+Add an FT8 QSO on 20m with dB reports, using the current date and time.
+.TP 3n
+\(bu
+$ \fBclog add 144.3m usb on4kst t59 r57 txs=3 rxs=45 loc=jo20hm\fR
+.sp
+Add a VHF contest QSO with serial numbers and a locator.
+.LP
+.SH FILES
+.I $HOME/.clogrc
+.SH AUTHOR
+.sp
+Written by Ernest Neijenhuis PA3HCM.
+.SH COPYRIGHT
+.sp
+Copyright (C) 2012-2026 Ernest Neijenhuis PA3HCM
+.sp
+This file is part of CLog.
+.sp
+CLog is free software: you can redistribute it and/or modify it under the terms
+of the GNU General Public License as published by the Free Software Foundation,
+either version 3 of the License, or (at your option) any later version.
+.sp
+CLog is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE. See the GNU General Public License for more details.
+.sp
+You should have received a copy of the GNU General Public License along with
+CLog. If not, see <http://www.gnu.org/licenses/>.
